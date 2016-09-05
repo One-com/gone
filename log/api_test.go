@@ -12,7 +12,7 @@ func output(l *log.Logger, msg string) {
 	l.Output(2, msg)
 }
 
-func ExampleOutput() {
+func ExampleDoCodeInfo() {
 	l := log.New(os.Stdout, "", log.Lshortfile)
 	l.DoCodeInfo(true)
 	output(l, "output")
@@ -29,7 +29,7 @@ func ExampleMinimal() {
 	// <3>fejl
 }
 
-func ExampleNewMinLogger() {
+func ExampleNewMinFormatter() {
 	h := log.NewMinFormatter(log.SyncWriter(os.Stdout), log.PrefixOpt("PFX:"))
 	l := log.NewLogger(syslog.LOG_WARNING, h)
 	l.ERROR("fejl")
@@ -150,7 +150,7 @@ func ExampleGetLogger() {
 	// <5> (my/lib/module) notice k=v
 }
 
-func ExampleApplyHandlerOptions() {
+func ExampleHandler() {
 	h := log.NewMinFormatter(log.SyncWriter(os.Stdout), log.PrefixOpt("PFX:"))
 	l := log.GetLogger("mylog")
 	l.SetHandler(h)

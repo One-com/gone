@@ -1,4 +1,5 @@
 // +build linux
+
 package term
 
 import "syscall"
