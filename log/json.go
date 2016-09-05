@@ -9,9 +9,9 @@ import (
 )
 
 type jsonformatter struct {
-	out      io.Writer
+	out        io.Writer
 	timelayout string
-	keynames *EventKeyNames // Names for basic event fields
+	keynames   *EventKeyNames // Names for basic event fields
 }
 
 // Clone returns a clone of the current handler for tweaking and swapping in
@@ -27,7 +27,6 @@ func (f *jsonformatter) Clone(options ...HandlerOption) CloneableHandler {
 
 	return new
 }
-
 
 // JSON Formatter Option to set flags
 func KeyNamesOpt(keys *EventKeyNames) HandlerOption {
@@ -47,7 +46,6 @@ func TimeFormatOpt(layout string) HandlerOption {
 	}
 }
 
-
 // NewJSONFormatter creates a new formatting Handler writing log events as JSON to the supplied Writer.
 func NewJSONFormatter(w io.Writer, options ...HandlerOption) *jsonformatter {
 	f := &jsonformatter{keynames: defaultKeyNames, out: w}
@@ -65,7 +63,9 @@ func (l *jsonformatter) Log(e Event) error {
 	m := make(map[string]interface{}, n)
 	m[l.keynames.Lvl] = e.Lvl
 	m[l.keynames.Msg] = e.Msg
-	if l.keynames.Name != "" { m[l.keynames.Name] = e.Name }
+	if l.keynames.Name != "" {
+		m[l.keynames.Name] = e.Name
+	}
 	m[l.keynames.Time] = e.Time().Format(l.timelayout)
 	for i := 0; i < x; i += 2 {
 		k := e.Data[i]

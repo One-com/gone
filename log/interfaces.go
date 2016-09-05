@@ -1,8 +1,8 @@
 package log
 
 import (
-	"io"
 	"github.com/One-com/gone/log/syslog"
+	"io"
 )
 
 // A "Logger" makes available methods compatible with the stdlib logger and

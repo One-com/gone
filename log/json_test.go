@@ -1,14 +1,13 @@
 package log_test
 
 import (
-	"testing"
 	"bytes"
 	"encoding/json"
-	"time"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
+	"testing"
+	"time"
 )
-
 
 var keys = &log.EventKeyNames{
 	Lvl:  "lvl",
@@ -23,7 +22,7 @@ func TestJSON(t *testing.T) {
 
 	var b bytes.Buffer
 	var layout string = "Mon Jan 2 15:04:05 -0700 MST 2006"
-	
+
 	opt1 := log.KeyNamesOpt(keys)
 	opt2 := log.TimeFormatOpt(layout)
 	h := log.NewJSONFormatter(&b, opt1, opt2)
@@ -33,11 +32,11 @@ func TestJSON(t *testing.T) {
 
 	now := time.Now()
 
-	l2 := l.With("foo","bar")
+	l2 := l.With("foo", "bar")
 	l2.Println("hello")
 	output := b.String()
 	var result map[string]interface{}
-	err := json.Unmarshal([]byte(output),&result)
+	err := json.Unmarshal([]byte(output), &result)
 	if err != nil {
 		t.Errorf("Invalid JSON result: (%s) %s", err.Error(), output)
 	}

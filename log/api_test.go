@@ -1,19 +1,19 @@
 package log_test
 
 import (
-	"testing"
 	"bytes"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
 	"os"
+	"testing"
 )
 
 func output(l *log.Logger, msg string) {
-	l.Output(2,msg)
+	l.Output(2, msg)
 }
 
 func ExampleOutput() {
-	l := log.New(os.Stdout,"",log.Lshortfile)
+	l := log.New(os.Stdout, "", log.Lshortfile)
 	l.DoCodeInfo(true)
 	output(l, "output")
 	// Output:
@@ -113,7 +113,7 @@ func ExampleSetPrintLevel() {
 	l.SetHandler(h)
 	l.AutoColoring()
 	l.SetLevel(syslog.LOG_ERROR)
-	l.SetPrintLevel(syslog.LOG_NOTICE,false)
+	l.SetPrintLevel(syslog.LOG_NOTICE, false)
 
 	l.Print("ignoring level")
 	// Output:
@@ -127,7 +127,7 @@ func ExampleWith() {
 	l.SetHandler(h)
 	l.SetLevel(syslog.LOG_ERROR)
 
-	l2 := l.With("key","value")
+	l2 := l.With("key", "value")
 
 	l3 := l2.With("more", "data")
 
@@ -143,8 +143,8 @@ func ExampleGetLogger() {
 	l.SetHandler(h)
 	l2 := log.GetLogger("my/lib/module")
 
-	l3 := l2.With("k","v")
-		
+	l3 := l2.With("k", "v")
+
 	l3.NOTICE("notice")
 	// Output:
 	// <5> (my/lib/module) notice k=v
@@ -155,7 +155,7 @@ func ExampleApplyHandlerOptions() {
 	l := log.GetLogger("mylog")
 	l.SetHandler(h)
 	l.ERROR("fejl")
-	l.ApplyHandlerOptions(log.FlagsOpt(log.Llevel|log.Lname))
+	l.ApplyHandlerOptions(log.FlagsOpt(log.Llevel | log.Lname))
 	l.WARN("advarsel")
 	// Output:
 	// <3>PFX:fejl
@@ -166,7 +166,7 @@ func ExampleApplyHandlerOptions() {
 func TestEmptyPrintCreatesLineKV(t *testing.T) {
 	var b bytes.Buffer
 	ll := log.New(&b, "Header:", 0)
-	l := ll.With("k","v")
+	l := ll.With("k", "v")
 	l.Print()
 	l.Println("non-empty")
 	output := b.String()
