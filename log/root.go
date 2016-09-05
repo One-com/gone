@@ -166,6 +166,11 @@ func Level() syslog.Priority {
 
 //--- std logger stuff
 
+// Output compatible with the standard library
+func Output(calldepth int, s string) error {
+	return defaultLogger.Output(calldepth+1, s)
+}
+
 // Compatible with the standard library
 func Flags() int {
 	return defaultLogger.Flags()

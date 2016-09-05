@@ -12,12 +12,18 @@ func output(l *log.Logger, msg string) {
 	l.Output(2, msg)
 }
 
-func ExampleDoCodeInfo() {
+func ExampleOutput() {
 	l := log.New(os.Stdout, "", log.Lshortfile)
 	l.DoCodeInfo(true)
-	output(l, "output")
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Lshortfile)
+	log.SetPrefix("")
+
+	output(l, "output1")
+	log.Output(1, "output2")
 	// Output:
-	// api_test.go:18: output
+	// api_test.go:22: output1
+	// api_test.go:23: output2
 }
 
 //----------------------------------------------------------------
