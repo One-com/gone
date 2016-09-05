@@ -1,8 +1,6 @@
-# gonelog
+# gone/log
 
-Golang logging and metric library [![GoDoc](https://godoc.org/github.com/one-com/gone/log?status.svg)](https://godoc.org/github.com/one-com/gone/log)
-
-#### Logging
+Golang logging library [![GoDoc](https://godoc.org/github.com/one-com/gone/log?status.svg)](https://godoc.org/github.com/one-com/gone/log) [![GoReportCard](https://goreportcard.com/badge/github.com/One-com/gone)](https://goreportcard.com/report/github.com/One-com/gone/log) [Coverage](http://gocover.io/github.com/One-com/gone/log)
 
 Package gone/log is a drop-in replacement for the standard Go logging library "log" which is fully source code compatible support all the standard library API while at the same time offering advanced logging features through an extended API.
 
