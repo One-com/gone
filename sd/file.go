@@ -7,8 +7,7 @@ import (
 	"strconv"
 	"sync"
 	unix "syscall"
-	"github.com/pkg/errors"
-	gerrors "errors"
+	"errors"
 )
 
 const (
@@ -16,6 +15,7 @@ const (
 	envListenFds       = "LISTEN_FDS"
 	envListenPid       = "LISTEN_PID"
 	envListenFdNames   = "LISTEN_FDNAMES"
+	envIgnoreListenPid = "LISTEN_PID_IGNORE" // for testing
 	sdListenFdStart    = 3
 
 )
@@ -144,7 +144,11 @@ func (s *state) inherit() error {
 			}
 			if pid != os.Getpid() {
 				// not for us
-				return
+				ignore := os.Getenv(envIgnoreListenPid)
+				if ignore == "" {
+					fmt.Println("Not for us", pid)
+					return
+				}
 			}
 		}
 
@@ -208,7 +212,7 @@ func Export(sdname string, f interface{}) (err error) {
 			return
 		}
 	default:
-		err = gerrors.New("Unknown file type. Not exported")
+		err = errors.New("Unknown file type. Not exported")
 		return
 	}
 	s.mutex.Lock()
@@ -220,7 +224,7 @@ func Export(sdname string, f interface{}) (err error) {
 		// This probably shouldn't happen, since it would mean we had gotten an
 		// already used fd from dup()
 		file.Close()
-		err = gerrors.New("File descriptor already exported")
+		err = errors.New("File descriptor already exported")
 	}
 	return
 }
@@ -234,7 +238,7 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
         r0, _, e1 := unix.Syscall(unix.SYS_FCNTL, uintptr(fd), uintptr(cmd), uintptr(arg))
         val = int(r0)
         if e1 != 0 {
-                err = gerrors.New("DUP error")
+                err = errors.New("DUP error")
         }
         return
 }
@@ -271,7 +275,6 @@ func FileWith(sdname string, tests ...FileTest) (rfile *os.File, rname string, e
 			return
 		}
 		if err != nil {
-			err = errors.Wrap(err, "failed isMatching")
 			return
 		}
 	}
