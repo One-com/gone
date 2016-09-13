@@ -18,22 +18,31 @@ const (
 )
 
 const (
+	// Don't send a STATUS
 	StatusNone = iota
+	// Tell systemd status is READY
 	StatusReady
+	// Tell systemd status is RELOADING
 	StatusReloading
+	// Tell systemd status is STOPPING
 	StatusStopping
+	// Tell the systemd WATCHDOG we are alive
 	StatusWatchdog
 )
 
 const (
+	// Unset the systemd notify/Watchdog env vars
 	NotifyUnsetEnv = 1 << iota
+	// Send active file descriptors along with systemd notify message to FDSTORE
 	NotifyWithFds
 )
 
+// ErrSdNotifyNoSocket is informs the caller that there's no NOTIFY_SOCKET avaliable
 var ErrSdNotifyNoSocket = errors.New("No systemd notify socket in environment")
 
 var watchdogDuration time.Duration
 var watchdogEnabled  bool
+var notifySocket     string
 
 func init() {
 	if durStr := os.Getenv(envWatchdogUsec); durStr != "" {
@@ -53,6 +62,12 @@ func init() {
 					watchdogEnabled = true
 				}
 			}
+		}
+	}
+	if notifySocket = os.Getenv(envNotifySocket); notifySocket != "" {
+		// Handle abstract sockets
+		if notifySocket[0] == '@' {
+			notifySocket = "\x00" + notifySocket[1:]
 		}
 	}
 }
@@ -95,18 +110,13 @@ func Notify(flags int, lines ...string) (err error) {
 	if flags & NotifyUnsetEnv != 0 {
 		defer os.Unsetenv(envNotifySocket)
 	}
-	socket := os.Getenv(envNotifySocket)
-	if socket == "" {
+
+	if notifySocket == "" {
 		return ErrSdNotifyNoSocket
 	}
 
-	// Handle abstract sockets
-	if socket[0] == '@' {
-		socket = "\x00" + socket[1:]
-	}
-
 	socketAddr := &net.UnixAddr{
-		Name: socket,
+		Name: notifySocket,
 		Net:  "unixgram",
 	}
 
