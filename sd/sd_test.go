@@ -5,7 +5,9 @@ import (
 	"net"
 	"fmt"
 	"bufio"
+	"time"
 	"testing"
+	"syscall"
 )
 
 var systemd_activate = "/lib/systemd/systemd-activate"
@@ -21,6 +23,13 @@ func TestSocketActivation(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	defer func() {
+		cmd.Process.Signal(syscall.SIGTERM)
+		cmd.Wait()
+	}()
+
+	time.Sleep(time.Millisecond)
+
 	// Connection and readback
 	conn, err := net.Dial("tcp", listen_address)
 	if err != nil {
@@ -35,4 +44,5 @@ func TestSocketActivation(t *testing.T) {
 	if status != data  {
 		t.Fatalf("Din't get back test data. Expected <%s>, got <%s>", data, status)
 	}
+	fmt.Fprintln(conn, "quit")
 }

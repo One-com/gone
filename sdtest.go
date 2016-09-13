@@ -5,17 +5,24 @@ import (
 	"bufio"
 	"log"
 	"net"
+	"fmt"
 )
 
-func handleConn(conn net.Conn) {
+func handleConn(conn net.Conn, quit chan struct{}) {
 	b := bufio.NewReader(conn)
 	for {
 		line, err := b.ReadBytes('\n')
 		if err != nil {
 			break
 		}
+		fmt.Println(line)
+		if line[0] == 'q' {
+			close(quit)
+			break
+		}
 		conn.Write(line)
 	}
+	conn.Close()
 }
 
 func main() {
@@ -26,14 +33,25 @@ func main() {
 	}
 
 	log.Println(l.Addr())
-	
+
+	quit := make(chan struct{})
+
 	sd.NotifyStatus(sd.StatusReady, "Up and running")
+
+	go func() {
+		select {
+		case <-quit:
+			fmt.Println("Exiting")
+			l.Close()
+		}
+	}()
+
 	for {
+
 		conn, err := l.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleConn(conn)
+		go handleConn(conn, quit)
 	}
 }
-
