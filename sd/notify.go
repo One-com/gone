@@ -44,9 +44,9 @@ func init() {
 	}
 	if pidStr := os.Getenv(envWatchdogPid); pidStr != "" {
 		if watchdogDuration != time.Duration(0) {
-			if pidStr == "" {				
+			if pidStr == "" {
 				watchdogEnabled = true
-				
+
 			} else {
 				pid, err := strconv.Atoi(pidStr)
 				if err == nil && pid == os.Getpid() {
@@ -95,18 +95,16 @@ func Notify(flags int, lines ...string) (err error) {
 	if flags & NotifyUnsetEnv != 0 {
 		defer os.Unsetenv(envNotifySocket)
 	}
-
-	state := strings.Join(lines, "\n")
-
 	socket := os.Getenv(envNotifySocket)
 	if socket == "" {
 		return ErrSdNotifyNoSocket
 	}
+
 	// Handle abstract sockets
 	if socket[0] == '@' {
 		socket = "\x00" + socket[1:]
 	}
-	
+
 	socketAddr := &net.UnixAddr{
 		Name: socket,
 		Net:  "unixgram",
@@ -117,7 +115,7 @@ func Notify(flags int, lines ...string) (err error) {
 		Name: fmt.Sprintf("\x00sdnotify%d",os.Getpid()),
 		Net:  "unixgram",
 	}
-	
+
 	var conn *net.UnixConn
 	conn, err = net.ListenUnixgram("unixgram",abstract)
 	if err != nil {
@@ -125,7 +123,8 @@ func Notify(flags int, lines ...string) (err error) {
 	}
 	defer conn.Close()
 
-	
+	state := strings.Join(lines, "\n")
+
 	var oob []byte
 	if flags & NotifyWithFds != 0 {
 		var expFiles []int
@@ -142,11 +141,11 @@ func Notify(flags int, lines ...string) (err error) {
 			state += "\n"
 		}
 		state += "FDSTORE=1\nFDNAME=" + fdNames
-		
+
 		oob = unix.UnixRights(expFiles...)
 	}
 
-	_, _, err = conn.WriteMsgUnix([]byte(state), oob, socketAddr)	
+	_, _, err = conn.WriteMsgUnix([]byte(state), oob, socketAddr)
 	return
 
 }

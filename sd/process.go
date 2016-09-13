@@ -9,6 +9,11 @@ import (
 	"strconv"
 )
 
+const (
+	envForkExecPid = "GONE_RESPAWN_PID"
+	envForkExecSig = "GONE_RESPAWN_SIG"
+)
+
 // In order to keep the working directory the same as when we started we record
 // it at startup.
 var originalWD, _  = os.Getwd()
@@ -34,8 +39,8 @@ func StartProcess(env []string) (int, error) {
 	// Pass on the environment, except fd fields
 	for _, v := range os.Environ() {
 		if ! (strings.HasPrefix(v, envListenFds+"=") ||
-			strings.HasPrefix(v,envListenFdNames+"=") ||
-			strings.HasPrefix(v,envListenPid+"=")) {
+			strings.HasPrefix(v, envListenFdNames+"=") ||
+			strings.HasPrefix(v, envListenPid+"=")) {
 			env = append(env, v)
 		}
 	}
@@ -73,10 +78,10 @@ func ReplaceProcess(sig syscall.Signal) (int, error) {
 	pid := os.Getpid()
 	var env [2]string
 	var c int
-	env[0] = fmt.Sprintf("NEWSTYLE_PID=%d",pid)
+	env[0] = fmt.Sprintf("%s=%d", envForkExecPid, pid)
 	if sig != syscall.Signal(0) {
 		c = 1
-		env[1] = fmt.Sprintf("NEWSTYLE_SIG=%d",sig)
+		env[1] = fmt.Sprintf("%s=%d",envForkExecSig, sig)
 	}
 	return StartProcess(env[0:c])
 }
@@ -85,12 +90,12 @@ func ReplaceProcess(sig syscall.Signal) (int, error) {
 func SignalParentTermination() error {
 	var sig syscall.Signal = syscall.SIGTERM // default signal
 	
-	myparentstr := os.Getenv("NEWSTYLE_PID")
+	myparentstr := os.Getenv(envForkExecPid)
 	if myparentstr == "" {
 		return nil // nothing to do here
 	}
 	ppid := os.Getppid()
-	mysigstr := os.Getenv("NEWSTYLE_SIG")
+	mysigstr := os.Getenv(envForkExecSig)
 	if mysigstr != "" {
 		var err error
 		var mysig int
