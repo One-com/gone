@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 )
 
+// LvlDEFAULT is the default log level at which Print*() functions will log.
 // Leveled logging is provided with the 8 syslog levels
 // Additional 2 pseudo-levels ("Fatal"/ "Panic") which log at Alert-level, but have
 // side-effects like the stdlogger. (os.Exit(1)/panic())
@@ -176,10 +177,10 @@ func (l *Logger) With(kv ...interface{}) *Logger {
 // (which is the case for minimal logging). It also enables using a single timestamp
 // for all formatting of the log event.
 // Returning whether the change was successful
-func (l *Logger) DoTime(do_time bool) bool {
+func (l *Logger) DoTime(doTime bool) bool {
 	c := atomic.LoadUint32(&l.cfg.config)
 	var n uint32
-	if do_time {
+	if doTime {
 		n = c | maskDoTime
 	} else {
 		n = c & ^maskDoTime
@@ -191,10 +192,10 @@ func (l *Logger) DoTime(do_time bool) bool {
 // Formatters which try to log this info will not give meaningful info if this is turned off.
 // It can fail if some other go-routine simultaneous is manipulating the config.
 // Returning whether the change was successful
-func (l *Logger) DoCodeInfo(do_code bool) bool {
+func (l *Logger) DoCodeInfo(doCode bool) bool {
 	c := atomic.LoadUint32(&l.cfg.config)
 	var n uint32
-	if do_code {
+	if doCode {
 		n = c | maskDoCode
 	} else {
 		n = c & ^maskDoCode
@@ -287,7 +288,7 @@ func (l *Logger) Do(level syslog.Priority) bool {
 // generate a log event with the current config.
 // It's equivalent to l.Does(l.PrintLevel()) - but atomically
 func (l *Logger) DoingPrintLevel() (syslog.Priority, bool) {
-	return l.cfg.doing_default_level()
+	return l.cfg.doingDefaultLevel()
 }
 
 // DoingDefaultLevel returns whether a log.Println() would actually
@@ -295,7 +296,7 @@ func (l *Logger) DoingPrintLevel() (syslog.Priority, bool) {
 // It's equivalent to l.Does(l.DefaultLevel()) - but atomically
 // Deprecated, use DoingPrintLevel()
 func (l *Logger) DoingDefaultLevel() (syslog.Priority, bool) {
-	return l.cfg.doing_default_level()
+	return l.cfg.doingDefaultLevel()
 }
 
 // Level returns the current log level
@@ -305,24 +306,24 @@ func (l *Logger) Level() syslog.Priority {
 
 // PrintLevel returns the current log level of Print*() methods
 func (l *Logger) PrintLevel() syslog.Priority {
-	return l.cfg.default_level()
+	return l.cfg.defaultLevel()
 }
 
 // DefaultLevel returns the current log level of Print*() methods. Deprecated, use PrintLevel()
 func (l *Logger) DefaultLevel() syslog.Priority {
-	return l.cfg.default_level()
+	return l.cfg.defaultLevel()
 }
 
 // DoingTime returns whether the Logger is currently timestamping all events on
 // creation
 func (l *Logger) DoingTime() bool {
-	return l.cfg.doing_time()
+	return l.cfg.doingTime()
 }
 
 // DoingCodeInfo returns whether the Logger is currently recording file/line info
 // for all log events
 func (l *Logger) DoingCodeInfo() bool {
-	return l.cfg.doing_code()
+	return l.cfg.doingCode()
 }
 
 /********************** lconfig operations *************************/
@@ -339,13 +340,13 @@ func (lc *lconfig) level() (l syslog.Priority) {
 	return
 }
 
-func (lc *lconfig) default_level() (l syslog.Priority) {
+func (lc *lconfig) defaultLevel() (l syslog.Priority) {
 	c := atomic.LoadUint32(&lc.config)
 	l = syslog.Priority(c & maskDefLvl >> levelshift)
 	return
 }
 
-func (lc *lconfig) doing_default_level() (syslog.Priority, bool) {
+func (lc *lconfig) doingDefaultLevel() (syslog.Priority, bool) {
 	c := atomic.LoadUint32(&lc.config)
 	l := syslog.Priority(c & maskLogLvl)
 	d := syslog.Priority((c & maskDefLvl) >> levelshift)
@@ -353,12 +354,12 @@ func (lc *lconfig) doing_default_level() (syslog.Priority, bool) {
 	return d, ((d <= l) || !respect)
 }
 
-func (lc *lconfig) doing_time() bool {
+func (lc *lconfig) doingTime() bool {
 	c := atomic.LoadUint32(&lc.config)
 	return c&maskDoTime != 0
 }
 
-func (lc *lconfig) doing_code() bool {
+func (lc *lconfig) doingCode() bool {
 	c := atomic.LoadUint32(&lc.config)
 	return c&maskDoCode != 0
 }

@@ -124,8 +124,8 @@ func (m *manager) fixupChildren(p *placeholder, l *Logger) {
 			// we do this
 			// l.parent = c.parent
 			// c.parent = l
-			grand_parent := c.h.SwapParent(l) // set new logger as parent for the existing logger
-			l.h.SwapParent(grand_parent)      // inherit the existing loggers parent for our selves
+			grandParent := c.h.SwapParent(l) // set new logger as parent for the existing logger
+			l.h.SwapParent(grandParent)      // inherit the existing loggers parent for our selves
 		}
 	}
 }

@@ -28,7 +28,7 @@ func (f *jsonformatter) Clone(options ...HandlerOption) CloneableHandler {
 	return new
 }
 
-// JSON Formatter Option to set flags
+// KeyNamesOpt is a JSON Formatter Option to set flags
 func KeyNamesOpt(keys *EventKeyNames) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*jsonformatter); ok {
@@ -37,7 +37,7 @@ func KeyNamesOpt(keys *EventKeyNames) HandlerOption {
 	}
 }
 
-// JSON Formatter Option to set timestamp formatting
+// TimeFormatOpt is a JSON Formatter Option to set timestamp formatting
 func TimeFormatOpt(layout string) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*jsonformatter); ok {
@@ -57,6 +57,7 @@ func NewJSONFormatter(w io.Writer, options ...HandlerOption) *jsonformatter {
 	return f
 }
 
+// Log implements the Handler interface for the JSON formatter.
 func (l *jsonformatter) Log(e Event) error {
 	x := len(e.Data)
 	n := x/2 + 3

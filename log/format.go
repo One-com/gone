@@ -18,9 +18,9 @@ import (
 
 // dynamic formatting for the stdformatter
 var (
-	level_colors  = [8]string{"30", "31;1;7", "31;1", "31", "33", "32", "37", "37;2"}
-	term_lvlpfx   = [8]string{"[EMR]", "[ALT]", "[CRT]", "[ERR]", "[WRN]", "[NOT]", "[INF]", "[DBG]"}
-	syslog_lvlpfx = [8]string{"<0>", "<1>", "<2>", "<3>", "<4>", "<5>", "<6>", "<7>"}
+	levelColors  = [8]string{"30", "31;1;7", "31;1", "31", "33", "32", "37", "37;2"}
+	termLvlPfx   = [8]string{"[EMR]", "[ALT]", "[CRT]", "[ERR]", "[WRN]", "[NOT]", "[INF]", "[DBG]"}
+	syslogLvlPfx = [8]string{"<0>", "<1>", "<2>", "<3>", "<4>", "<5>", "<6>", "<7>"}
 	pid           = os.Getpid()
 )
 
@@ -89,7 +89,7 @@ func NewMinFormatter(w io.Writer, options ...HandlerOption) *stdformatter {
 	// Default formatter
 	f := &stdformatter{
 		flag:   LminFlags,
-		pfxarr: &syslog_lvlpfx,
+		pfxarr: &syslogLvlPfx,
 		out:    w,
 	}
 	// Apply the options
@@ -104,7 +104,7 @@ func NewMinFormatter(w io.Writer, options ...HandlerOption) *stdformatter {
 func NewStdFormatter(w io.Writer, prefix string, flag int) *stdformatter {
 	f := &stdformatter{
 		out:    w,
-		pfxarr: &syslog_lvlpfx,
+		pfxarr: &syslogLvlPfx,
 		prefix: prefix,
 		flag:   flag,
 	}
@@ -319,7 +319,7 @@ func (l *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.T
 		if l.flag&(Lcolor) != 0 {
 			*buf = append(*buf,
 				fmt.Sprintf("\x1b[%sm%s\x1b[0m",
-					level_colors[level],
+					levelColors[level],
 					(*l.pfxarr)[level])...)
 		} else {
 			*buf = append(*buf, (*l.pfxarr)[level]...) // level prefix

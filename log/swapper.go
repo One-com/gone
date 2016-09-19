@@ -19,7 +19,7 @@ import (
 // The framework promises not to modify the Handler after it's in use.
 // Once a Handler has been swapped in, it cannot be changed.
 
-// ClonableHandlers allows you to call ApplyHandlerOptions() on a Logger to swap
+// ClonableHandler allows you to call ApplyHandlerOptions() on a Logger to swap
 // in a new Handler modified by the provided HandlerOptions
 type CloneableHandler interface {
 	Handler

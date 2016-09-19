@@ -50,13 +50,13 @@ func LvlFilterHandler(maxLvl syslog.Priority, h Handler) Handler {
 // if an error happen the last error is returned.
 func MultiHandler(hs ...Handler) Handler {
 	return HandlerFunc(func(e Event) error {
-		var maybe_err error
+		var maybeErr error
 		for _, h := range hs {
 			err := h.Log(e)
 			if err != nil {
-				maybe_err = err
+				maybeErr = err
 			}
 		}
-		return maybe_err
+		return maybeErr
 	})
 }

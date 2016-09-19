@@ -56,7 +56,7 @@ func MessageKey(key string) StdlibAdapterOption {
 	return func(a *StdlibAdapter) { a.messageKey = key }
 }
 
-// MessageKey sets the key for the actual log message. By default, it's "msg".
+// Parse instruct the adapter to try parse the stdlib log message to pick out fields
 func Parse() StdlibAdapterOption {
 	return func(a *StdlibAdapter) { a.parse = true }
 }

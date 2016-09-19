@@ -5,9 +5,9 @@ import (
 	"io"
 )
 
-// A "Logger" makes available methods compatible with the stdlib logger and
+// LevelLogger makes available methods compatible with the stdlib logger and
 // an extended API for leveled logging.
-// Logger is implemented by *log.Logger
+// LevelLogger is implemented by *log.Logger
 type LevelLogger interface {
 
 	// Will generate a log event with this level if the Logger log level is

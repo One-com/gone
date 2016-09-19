@@ -1,4 +1,4 @@
-// Gonelog uses the syslog level contants source code compatible with the standard library.
+// Package syslog provides the syslog level contants source code compatible with the standard library.
 package syslog
 
 import (

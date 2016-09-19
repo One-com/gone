@@ -35,10 +35,10 @@ func newSwapper() (s *swapper) {
 
 // Log sends the event down the first Handler chain, it finds in the Logger tree.
 // NB: This is different from pythong "logging" in that only one Handler is activated
-func (h *swapper) Log(e *event) (err error) {
+func (s *swapper) Log(e *event) (err error) {
 
 	// try the local handler
-	v, _ := h.val.Load().(valueStruct)
+	v, _ := s.val.Load().(valueStruct)
 	// Logger swappers *has* to have a valid valueStruct
 
 	if v.Handler != nil {
