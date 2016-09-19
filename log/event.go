@@ -78,7 +78,7 @@ var defaultKeyNames = &EventKeyNames{
 func (e *event) Time() (t time.Time) {
 	if e.tok {
 		return e.time
-	} 
+	}
 
 	// don't modify an event after creation
 	// If you need a single timestamp for all usages of the event,
