@@ -58,16 +58,16 @@ func NewJSONFormatter(w io.Writer, options ...HandlerOption) *jsonformatter {
 }
 
 // Log implements the Handler interface for the JSON formatter.
-func (l *jsonformatter) Log(e Event) error {
+func (f *jsonformatter) Log(e Event) error {
 	x := len(e.Data)
 	n := x/2 + 3
 	m := make(map[string]interface{}, n)
-	m[l.keynames.Lvl] = e.Lvl
-	m[l.keynames.Msg] = e.Msg
-	if l.keynames.Name != "" {
-		m[l.keynames.Name] = e.Name
+	m[f.keynames.Lvl] = e.Lvl
+	m[f.keynames.Msg] = e.Msg
+	if f.keynames.Name != "" {
+		m[f.keynames.Name] = e.Name
 	}
-	m[l.keynames.Time] = e.Time().Format(l.timelayout)
+	m[f.keynames.Time] = e.Time().Format(f.timelayout)
 	for i := 0; i < x; i += 2 {
 		k := e.Data[i]
 		var v interface{} = errors.New("MISSING")
@@ -76,7 +76,7 @@ func (l *jsonformatter) Log(e Event) error {
 		}
 		merge(m, k, v)
 	}
-	return json.NewEncoder(l.out).Encode(m)
+	return json.NewEncoder(f.out).Encode(m)
 }
 
 func merge(dst map[string]interface{}, k, v interface{}) {

@@ -55,7 +55,7 @@ type event struct {
 	line int
 }
 
-// keynames for fixed event fields, when needed (such as in JSON)
+// EventKeyNames holds keynames for fixed event fields, when needed (such as in JSON)
 type EventKeyNames struct {
 	Lvl  string
 	Name string

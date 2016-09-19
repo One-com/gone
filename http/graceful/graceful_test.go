@@ -1,11 +1,11 @@
 package graceful
 
 import (
-	"testing"
+	"fmt"
 	"net"
 	"net/http"
+	"testing"
 	"time"
-	"fmt"
 )
 
 func killMeSoon(s *Server, delay time.Duration) {
@@ -37,7 +37,6 @@ func TestServe(t *testing.T) {
 	}
 }
 
-
 func TestKeepaliveShutdown(t *testing.T) {
 
 	mux := http.NewServeMux()
@@ -48,11 +47,10 @@ func TestKeepaliveShutdown(t *testing.T) {
 		fmt.Fprintf(w, "nice")
 	})
 	mux.HandleFunc("/longdownload", func(w http.ResponseWriter, req *http.Request) {
-		time.Sleep(3*time.Second)
+		time.Sleep(3 * time.Second)
 		fmt.Fprintf(w, "finally")
 	})
 
-	
 	s := &Server{
 		Server: &http.Server{
 			Handler: mux,
@@ -69,7 +67,7 @@ func TestKeepaliveShutdown(t *testing.T) {
 		}
 
 		addr := l.Addr()
-		
+
 		go s.Serve(l)
 
 		tr := &http.Transport{}
@@ -77,13 +75,13 @@ func TestKeepaliveShutdown(t *testing.T) {
 		if usecase == "clientleaves" {
 			tr.DisableKeepAlives = true
 		}
-		
+
 		client := &http.Client{
 			Transport: tr,
 		}
 
 		go killMeSoon(s, 1*time.Second)
-		resp, err := client.Get("http://"+ addr.String() + "/" + usecase )
+		resp, err := client.Get("http://" + addr.String() + "/" + usecase)
 		if err != nil {
 			if usecase != "longdownload" {
 				t.Fatal(err)
@@ -109,7 +107,7 @@ func TestKeepaliveShutdown(t *testing.T) {
 		case "longdownload":
 			if killed != 1 {
 				t.Fatalf("One connection should have been killed, but, got %d", killed)
-			}			
+			}
 		}
 	}
 }

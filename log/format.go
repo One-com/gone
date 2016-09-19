@@ -313,32 +313,32 @@ func marshalKeyvals(w io.Writer, keyvals ...interface{}) error {
 	return nil
 }
 
-func (l *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.Time, name string, file string, line int) {
+func (f *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.Time, name string, file string, line int) {
 
-	if l.flag&(Llevel) != 0 {
-		if l.flag&(Lcolor) != 0 {
+	if f.flag&(Llevel) != 0 {
+		if f.flag&(Lcolor) != 0 {
 			*buf = append(*buf,
 				fmt.Sprintf("\x1b[%sm%s\x1b[0m",
 					levelColors[level],
-					(*l.pfxarr)[level])...)
+					(*f.pfxarr)[level])...)
 		} else {
-			*buf = append(*buf, (*l.pfxarr)[level]...) // level prefix
+			*buf = append(*buf, (*f.pfxarr)[level]...) // level prefix
 		}
 	}
 
-	*buf = append(*buf, l.prefix...) // add any custom prefix
+	*buf = append(*buf, f.prefix...) // add any custom prefix
 
-	if l.flag&(Lname) != 0 {
+	if f.flag&(Lname) != 0 {
 		*buf = append(*buf, " ("...)
 		*buf = append(*buf, name...)
 		*buf = append(*buf, ") "...)
 	}
 
-	if l.flag&(Ldate|Ltime|Lmicroseconds) != 0 {
-		if l.flag&LUTC != 0 {
+	if f.flag&(Ldate|Ltime|Lmicroseconds) != 0 {
+		if f.flag&LUTC != 0 {
 			t = t.UTC()
 		}
-		if l.flag&Ldate != 0 {
+		if f.flag&Ldate != 0 {
 			year, month, day := t.Date()
 			itoa(buf, year, 4)
 			*buf = append(*buf, '/')
@@ -347,14 +347,14 @@ func (l *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.T
 			itoa(buf, day, 2)
 			*buf = append(*buf, ' ')
 		}
-		if l.flag&(Ltime|Lmicroseconds) != 0 {
+		if f.flag&(Ltime|Lmicroseconds) != 0 {
 			hour, min, sec := t.Clock()
 			itoa(buf, hour, 2)
 			*buf = append(*buf, ':')
 			itoa(buf, min, 2)
 			*buf = append(*buf, ':')
 			itoa(buf, sec, 2)
-			if l.flag&Lmicroseconds != 0 {
+			if f.flag&Lmicroseconds != 0 {
 				*buf = append(*buf, '.')
 				itoa(buf, t.Nanosecond()/1e3, 6)
 			}
@@ -362,14 +362,14 @@ func (l *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.T
 		}
 	}
 
-	if l.flag&(Lpid) != 0 {
+	if f.flag&(Lpid) != 0 {
 		*buf = append(*buf, '[')
 		itoa(buf, pid, -1)
 		*buf = append(*buf, "] "...)
 	}
 
-	if l.flag&(Lshortfile|Llongfile) != 0 {
-		if l.flag&Lshortfile != 0 {
+	if f.flag&(Lshortfile|Llongfile) != 0 {
+		if f.flag&Lshortfile != 0 {
 			short := file
 			for i := len(file) - 1; i > 0; i-- {
 				if file[i] == '/' {
