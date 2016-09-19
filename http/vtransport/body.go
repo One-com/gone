@@ -47,4 +47,3 @@ func (c *deferCloseBody) CloseIfNeeded() error {
 	}
 	return nil
 }
-

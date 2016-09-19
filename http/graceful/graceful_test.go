@@ -2,11 +2,11 @@ package graceful
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"testing"
 	"time"
-	"log"
 )
 
 func killMeSoon(s *Server, delay time.Duration) {
@@ -113,21 +113,21 @@ func TestKeepaliveShutdown(t *testing.T) {
 	}
 }
 
-func ExampleServe() {
+func ExampleServer_Serve() {
 	s := &Server{
 		Server: &http.Server{},
 	}
-	
+
 	l, err := net.Listen("tcp", "")
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	go func() {
 		time.Sleep(time.Second)
 		s.Shutdown()
 		s.Wait()
-	}() 
+	}()
 
 	err = s.Serve(l)
 	if err != nil {
