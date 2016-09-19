@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 	"time"
+	"log"
 )
 
 func killMeSoon(s *Server, delay time.Duration) {
@@ -110,4 +111,29 @@ func TestKeepaliveShutdown(t *testing.T) {
 			}
 		}
 	}
+}
+
+func ExampleServe() {
+	s := &Server{
+		Server: &http.Server{},
+	}
+	
+	l, err := net.Listen("tcp", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	go func() {
+		time.Sleep(time.Second)
+		s.Shutdown()
+		s.Wait()
+	}() 
+
+	err = s.Serve(l)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("OK")
+	// Output:
+	// OK
 }
