@@ -48,19 +48,25 @@ func (l *Logger) debug(msg string, kv ...interface{}) {
 //---
 
 // ALERTok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) ALERTok() (LogFunc, bool)  { return l.alert, l.Does(syslog.LOG_ALERT) }
+func (l *Logger) ALERTok() (LogFunc, bool) { return l.alert, l.Does(syslog.LOG_ALERT) }
+
 // CRITok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) CRITok() (LogFunc, bool)   { return l.crit, l.Does(syslog.LOG_CRIT) }
+func (l *Logger) CRITok() (LogFunc, bool) { return l.crit, l.Does(syslog.LOG_CRIT) }
+
 // ERRORok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) ERRORok() (LogFunc, bool)  { return l.error, l.Does(syslog.LOG_ERROR) }
+func (l *Logger) ERRORok() (LogFunc, bool) { return l.error, l.Does(syslog.LOG_ERROR) }
+
 // WARNok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) WARNok() (LogFunc, bool)   { return l.warn, l.Does(syslog.LOG_WARN) }
+func (l *Logger) WARNok() (LogFunc, bool) { return l.warn, l.Does(syslog.LOG_WARN) }
+
 // NOTICEok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) NOTICEok() (LogFunc, bool) { return l.notice, l.Does(syslog.LOG_NOTICE) }
+
 // INFOok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) INFOok() (LogFunc, bool)   { return l.info, l.Does(syslog.LOG_INFO) }
+func (l *Logger) INFOok() (LogFunc, bool) { return l.info, l.Does(syslog.LOG_INFO) }
+
 // DEBUGok will return whether the logger generates events at this level, and a function which will do the logging when called.
-func (l *Logger) DEBUGok() (LogFunc, bool)  { return l.debug, l.Does(syslog.LOG_DEBUG) }
+func (l *Logger) DEBUGok() (LogFunc, bool) { return l.debug, l.Does(syslog.LOG_DEBUG) }
 
 //---
 

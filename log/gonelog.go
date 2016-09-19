@@ -144,7 +144,7 @@ func (l *Logger) ApplyHandlerOptions(opt ...HandlerOption) {
 	l.h.ApplyHandlerOptions(opt...)
 }
 
-// Autocoloring asks the current Handler to test if there's a TTY attached to an
+// AutoColoring asks the current Handler to test if there's a TTY attached to an
 // output and if so, apply coloring to the formatter.
 func (l *Logger) AutoColoring() {
 	l.h.AutoColoring()
@@ -241,11 +241,6 @@ func (l *Logger) SetLevel(level syslog.Priority) bool {
 	var n uint32
 	n = (c & ^maskLogLvl) | uint32(level)
 	return atomic.CompareAndSwapUint32(&l.cfg.config, c, n)
-}
-
-// Deprecated: Use SetPrintLevel()
-func (l *Logger) SetDefaultLevel(level syslog.Priority, respect bool) bool {
-	return l.SetPrintLevel(level, respect)
 }
 
 // SetPrintLevel sets the level which Print*() methods are logging with.

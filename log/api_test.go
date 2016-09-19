@@ -55,7 +55,7 @@ func ExampleNew() {
 func ExampleNewLogger() {
 	h := log.NewStdFormatter(log.SyncWriter(os.Stdout), "", log.Llevel)
 	l := log.NewLogger(syslog.LOG_WARNING, h)
-	l.SetDefaultLevel(syslog.LOG_NOTICE, false)
+	l.SetPrintLevel(syslog.LOG_NOTICE, false)
 
 	// Traditional.
 	// Evaluates arguments unless Lazy is used, but doesn't generate
