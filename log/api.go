@@ -47,18 +47,24 @@ func (l *Logger) debug(msg string, kv ...interface{}) {
 
 //---
 
-// Methods which return a function which will do the queries logging when called.
+// ALERTok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) ALERTok() (LogFunc, bool)  { return l.alert, l.Does(syslog.LOG_ALERT) }
+// CRITok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) CRITok() (LogFunc, bool)   { return l.crit, l.Does(syslog.LOG_CRIT) }
+// ERRORok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) ERRORok() (LogFunc, bool)  { return l.error, l.Does(syslog.LOG_ERROR) }
+// WARNok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) WARNok() (LogFunc, bool)   { return l.warn, l.Does(syslog.LOG_WARN) }
+// NOTICEok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) NOTICEok() (LogFunc, bool) { return l.notice, l.Does(syslog.LOG_NOTICE) }
+// INFOok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) INFOok() (LogFunc, bool)   { return l.info, l.Does(syslog.LOG_INFO) }
+// DEBUGok will return whether the logger generates events at this level, and a function which will do the logging when called.
 func (l *Logger) DEBUGok() (LogFunc, bool)  { return l.debug, l.Does(syslog.LOG_DEBUG) }
 
 //---
 
-// Log a message and optional KV values at syslog ALERT level.
+// ALERT - Log a message and optional KV values at syslog ALERT level.
 func (l *Logger) ALERT(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	if l.Does(lvl) {
@@ -66,7 +72,7 @@ func (l *Logger) ALERT(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog CRIT level.
+// CRIT - Log a message and optional KV values at syslog CRIT level.
 func (l *Logger) CRIT(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_CRIT
 	if l.Does(lvl) {
@@ -74,7 +80,7 @@ func (l *Logger) CRIT(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog ERROR level.
+// ERROR - Log a message and optional KV values at syslog ERROR level.
 func (l *Logger) ERROR(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_ERROR
 	if l.Does(lvl) {
@@ -82,7 +88,7 @@ func (l *Logger) ERROR(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog WARN level.
+// WARN - Log a message and optional KV values at syslog WARN level.
 func (l *Logger) WARN(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_WARN
 	if l.Does(lvl) {
@@ -90,7 +96,7 @@ func (l *Logger) WARN(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog NOTICE level.
+// NOTICE - Log a message and optional KV values at syslog NOTICE level.
 func (l *Logger) NOTICE(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_NOTICE
 	if l.Does(lvl) {
@@ -98,7 +104,7 @@ func (l *Logger) NOTICE(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog INFO level.
+// INFO - Log a message and optional KV values at syslog INFO level.
 func (l *Logger) INFO(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_INFO
 	if l.Does(lvl) {
@@ -106,7 +112,7 @@ func (l *Logger) INFO(msg string, kv ...interface{}) {
 	}
 }
 
-// Log a message and optional KV values at syslog DEBUG level.
+// DEBUG - Log a message and optional KV values at syslog DEBUG level.
 func (l *Logger) DEBUG(msg string, kv ...interface{}) {
 	lvl := syslog.LOG_DEBUG
 	if l.Does(lvl) {

@@ -15,12 +15,12 @@ func New(out io.Writer, prefix string, flags int) *Logger {
 	return l
 }
 
-// Output() compatible with the standard lib logger
+// Output compatible with the standard lib logger
 func (l *Logger) Output(calldepth int, s string) error {
 	return l.output(calldepth, s)
 }
 
-// Fatal() compatible with the standard lib logger
+// Fatal compatible with the standard lib logger
 func (l *Logger) Fatal(v ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	s := fmt.Sprint(v...)
@@ -28,7 +28,7 @@ func (l *Logger) Fatal(v ...interface{}) {
 	os.Exit(1)
 }
 
-// Fatalf() compatible with the standard lib logger
+// Fatalf compatible with the standard lib logger
 func (l *Logger) Fatalf(format string, v ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	s := fmt.Sprintf(format, v...)
@@ -36,7 +36,7 @@ func (l *Logger) Fatalf(format string, v ...interface{}) {
 	os.Exit(1)
 }
 
-// Fatalln() compatible with the standard lib logger
+// Fatalln compatible with the standard lib logger
 func (l *Logger) Fatalln(v ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	s := fmt.Sprint(v...)
@@ -44,7 +44,7 @@ func (l *Logger) Fatalln(v ...interface{}) {
 	os.Exit(1)
 }
 
-// Panic() compatible with the standard lib logger
+// Panic compatible with the standard lib logger
 func (l *Logger) Panic(v ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	s := fmt.Sprint(v...)
@@ -52,7 +52,7 @@ func (l *Logger) Panic(v ...interface{}) {
 	panic(s)
 }
 
-// Panicf() compatible with the standard lib logger
+// Panicf compatible with the standard lib logger
 func (l *Logger) Panicf(format string, v ...interface{}) {
 	lvl := syslog.LOG_ALERT
 	s := fmt.Sprintf(format, v...)
@@ -68,7 +68,7 @@ func (l *Logger) Panicln(v ...interface{}) {
 	panic(s)
 }
 
-// Print() compatible with the standard lib logger
+// Print compatible with the standard lib logger
 func (l *Logger) Print(v ...interface{}) {
 	if lvl, ok := l.DoingDefaultLevel(); ok {
 		s := fmt.Sprint(v...)
@@ -76,7 +76,7 @@ func (l *Logger) Print(v ...interface{}) {
 	}
 }
 
-// Printf() compatible with the standard lib logger
+// Printf compatible with the standard lib logger
 func (l *Logger) Printf(format string, v ...interface{}) {
 	if lvl, ok := l.DoingDefaultLevel(); ok {
 		s := fmt.Sprintf(format, v...)
@@ -84,7 +84,7 @@ func (l *Logger) Printf(format string, v ...interface{}) {
 	}
 }
 
-// Println() compatible with the standard lib logger
+// Println compatible with the standard lib logger
 func (l *Logger) Println(v ...interface{}) {
 	if lvl, ok := l.DoingDefaultLevel(); ok {
 		s := fmt.Sprint(v...)
@@ -99,17 +99,17 @@ func (l *Logger) Println(v ...interface{}) {
 // If these functions have no meaning for the actual Handler attached, then they
 // result in a NOOP.
 
-// Flags() compatible with the standard lib logger
+// Flags compatible with the standard lib logger
 func (l *Logger) Flags() int {
 	return l.h.Flags()
 }
 
-// Prefix() compatible with the standard lib logger
+// Prefix compatible with the standard lib logger
 func (l *Logger) Prefix() string {
 	return l.h.Prefix()
 }
 
-// SetFlags() compatible with the standard lib logger
+// SetFlags compatible with the standard lib logger
 func (l *Logger) SetFlags(flag int) {
 	// First activate needed book keeping
 	if flag&(Ldate|Ltime|Lmicroseconds) != 0 {
@@ -130,12 +130,12 @@ func (l *Logger) SetFlags(flag int) {
 	}
 }
 
-// SetPrefix() compatible with the standard lib logger
+// SetPrefix compatible with the standard lib logger
 func (l *Logger) SetPrefix(prefix string) {
 	l.h.SetPrefix(prefix)
 }
 
-// SetOutput() compatible with the standard lib logger
+// SetOutput compatible with the standard lib logger
 func (l *Logger) SetOutput(w io.Writer) {
 	l.h.SetOutput(w)
 }

@@ -8,8 +8,6 @@ import (
 	//	"os"
 )
 
-type Termios syscall.Termios
-
 type fder interface {
 	Fd() uintptr
 }
