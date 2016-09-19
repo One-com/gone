@@ -64,6 +64,8 @@ func (e *NotReadyError) Error() string {
 	return e.Err.Error()
 }
 
+// ConnectionsKilled returns the number of HTTP connections killed by the server
+// during last shutdown.
 func (srv *Server) ConnectionsKilled() int {
 	srv.runlock.Lock()
 	defer srv.runlock.Unlock()
@@ -162,8 +164,8 @@ func (srv *Server) Serve(listener net.Listener) error {
 	// Ensure shutdown is activated and record whether it was done by a proper call to shutdown
 	// Read the shutdown channel to see if we trigger shutdown here
 	// If a proper Shutdown() was requested, we will read false
-	extraordinary_exit := <-srv.shutdown
-	if extraordinary_exit {
+	extraordinaryExit := <-srv.shutdown
+	if extraordinaryExit {
 		if srv.ErrorLog != nil {
 			srv.ErrorLog.Printf("Server exited without requested: %s", err)
 		}

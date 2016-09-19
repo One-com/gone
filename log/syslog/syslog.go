@@ -5,6 +5,7 @@ import (
 	stdsyslog "log/syslog"
 )
 
+// Priority is the std library syslog.Priority type
 type Priority stdsyslog.Priority
 
 // Stdlib syslog level constants
