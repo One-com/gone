@@ -15,5 +15,9 @@ Specifically it supports the following:
 Package "sd" is not depended on systemd as such. If there's no socket activation available the fallback is most often
 to just create the socket. If there's no notifiy socket, calling sd.Notify() will of course fail.
 
+You can use package "sd" without any interaction with systemd, merely to manage a set of active socket file descriptors
+using the Cleanup() function to close all file decriptors not in use and Reset() to make all file descripts in use available
+for creating Listeners/PacketConns again.
+
 */
 package sd
