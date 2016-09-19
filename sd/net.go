@@ -1,10 +1,10 @@
 package sd
 
 import (
+	"errors"
 	"net"
 	"os"
 	unix "syscall"
-	"errors"
 )
 
 var listenerBacklog = maxListenerBacklog()
@@ -15,7 +15,7 @@ var listenerBacklog = maxListenerBacklog()
 func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, gotName string, err error) {
 	var file *os.File
 	// look for an inherited listener
-	file, gotName , err = FileWith(wantName, tests...)
+	file, gotName, err = FileWith(wantName, tests...)
 	if err != nil {
 		return
 	}
@@ -24,12 +24,11 @@ func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, g
 		if err != nil {
 			return
 		}
-		err = Export(gotName,file)
+		err = Export(gotName, file)
 		file.Close() // FileListener made a dup(). Export made a dup(). This copy is useless
 	}
 	return
 }
-
 
 // InheritNamedPacketConn returns a net.Listener and its systemd name passing
 // the tests (and name criteria) provided.
@@ -37,7 +36,7 @@ func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, g
 func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketConn, gotName string, err error) {
 	var file *os.File
 	// look for an inherited listener
-	file, gotName , err = FileWith(wantName, tests...)
+	file, gotName, err = FileWith(wantName, tests...)
 	if err != nil {
 		return
 	}
@@ -46,7 +45,7 @@ func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketCon
 		if err != nil {
 			return
 		}
-		err = Export(gotName,file)
+		err = Export(gotName, file)
 		file.Close() // FilePacketConn made a dup(). Export made a dup(). This copy is useless
 	}
 	return
@@ -105,7 +104,7 @@ func ListenPacket(nett, laddr string) (net.PacketConn, error) {
 // ListenTCP returns a normal *net.TCPListener. It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
 func ListenTCP(nett string, laddr *net.TCPAddr) (*net.TCPListener, error) {
-	return NamedListenTCP("",nett,laddr)
+	return NamedListenTCP("", nett, laddr)
 }
 
 // NamedListenTCP is like ListenTCP, but requires the file descriptor used to have
@@ -136,20 +135,20 @@ func NamedListenTCP(name, nett string, laddr *net.TCPAddr) (l *net.TCPListener, 
 // ListenUnixgram returns a normal *net.UnixConn. It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
 func ListenUnixgram(nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
-	return NamedListenUnixgram("",nett, laddr)
+	return NamedListenUnixgram("", nett, laddr)
 }
 
 // NamedListenUnixgram is like ListenUnixgram, but will require any used inherited
 // file descriptor to have the given systemd socket name
 func NamedListenUnixgram(name, nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
-	return nil,nil
+	return nil, nil
 }
 
 // ListenUnix is like net.ListenUnix and will return a normal *net.UnixListener.
 // It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
 func ListenUnix(nett string, laddr *net.UnixAddr) (*net.UnixListener, error) {
-	return NamedListenUnix("",nett, laddr)
+	return NamedListenUnix("", nett, laddr)
 }
 
 // NamedListenUnix is like ListenUnix, but will require any used inherited
@@ -212,7 +211,7 @@ func noUnlinkUnixListener(nett string, laddr *net.UnixAddr) (l *net.UnixListener
 	}
 
 	var lis net.Listener
-	file := os.NewFile(uintptr(fd),"")
+	file := os.NewFile(uintptr(fd), "")
 	lis, err = net.FileListener(file)
 	file.Close()
 	if err != nil {
@@ -227,7 +226,6 @@ func noUnlinkUnixListener(nett string, laddr *net.UnixAddr) (l *net.UnixListener
 	return
 }
 
-
 func socket(net string, family, sotype, proto int, ipv6only bool, laddr *net.UnixAddr) (fd int, err error) {
 	if laddr == nil {
 		err = errors.New("Can't make UNIX listener with nil address")
@@ -236,56 +234,56 @@ func socket(net string, family, sotype, proto int, ipv6only bool, laddr *net.Uni
 
 	var s int
 	s, err = unix.Socket(family, sotype|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC, proto)
-        if err != nil {
-                return
-        }
-        if err = setDefaultSockopts(s, family, sotype, ipv6only); err != nil {
-                unix.Close(s)
-                return
-        }
+	if err != nil {
+		return
+	}
+	if err = setDefaultSockopts(s, family, sotype, ipv6only); err != nil {
+		unix.Close(s)
+		return
+	}
 
-        // This function makes a network file descriptor for the
-        // following applications:
-        //
-        // - An endpoint holder that opens a passive stream
-        //   connection, known as a stream listener
-        //
-        // - An endpoint holder that opens a destination-unspecific
-        //   datagram connection, known as a datagram listener
-        //
-        // - An endpoint holder that opens an active stream or a
-        //   destination-specific datagram connection, known as a
-        //   dialer
-        //
-        // - An endpoint holder that opens the other connection, such
-        //   as talking to the protocol stack inside the kernel
-        //
-        // For stream and datagram listeners, they will only require
-        // named sockets, so we can assume that it's just a request
-        // from stream or datagram listeners when laddr is not nil but
-        // raddr is nil. Otherwise we assume it's just for dialers or
-        // the other connection holders.
+	// This function makes a network file descriptor for the
+	// following applications:
+	//
+	// - An endpoint holder that opens a passive stream
+	//   connection, known as a stream listener
+	//
+	// - An endpoint holder that opens a destination-unspecific
+	//   datagram connection, known as a datagram listener
+	//
+	// - An endpoint holder that opens an active stream or a
+	//   destination-specific datagram connection, known as a
+	//   dialer
+	//
+	// - An endpoint holder that opens the other connection, such
+	//   as talking to the protocol stack inside the kernel
+	//
+	// For stream and datagram listeners, they will only require
+	// named sockets, so we can assume that it's just a request
+	// from stream or datagram listeners when laddr is not nil but
+	// raddr is nil. Otherwise we assume it's just for dialers or
+	// the other connection holders.
 
 	switch sotype {
 	case unix.SOCK_STREAM, unix.SOCK_SEQPACKET:
-		if err = listenStream(s,laddr, listenerBacklog); err != nil {
+		if err = listenStream(s, laddr, listenerBacklog); err != nil {
 			unix.Close(s)
 			return
 		}
 	case unix.SOCK_DGRAM:
-		if err = listenDatagram(s,laddr); err != nil {
+		if err = listenDatagram(s, laddr); err != nil {
 			unix.Close(s)
 			return
 		}
 	}
 	fd = s
-        return
+	return
 }
 
 func listenStream(fd int, laddr *net.UnixAddr, backlog int) error {
-        if err := setDefaultListenerSockopts(fd); err != nil {
-                return err
-        }
+	if err := setDefaultListenerSockopts(fd); err != nil {
+		return err
+	}
 	lsa := &unix.SockaddrUnix{Name: laddr.Name}
 
 	if err := unix.Bind(fd, lsa); err != nil {
@@ -301,7 +299,7 @@ func listenStream(fd int, laddr *net.UnixAddr, backlog int) error {
 		var e2 error
 		e2 = unix.Stat(lsa.Name, &stat)
 		if e2 == nil {
-			if stat.Mode & unix.S_IFMT == unix.S_IFSOCK {
+			if stat.Mode&unix.S_IFMT == unix.S_IFSOCK {
 				// Try unlink it
 				e2 = unix.Unlink(lsa.Name)
 				if e2 == nil {
@@ -316,45 +314,44 @@ func listenStream(fd int, laddr *net.UnixAddr, backlog int) error {
 		if err != nil {
 			return os.NewSyscallError("bind", err)
 		}
-        }
-        if err := unix.Listen(fd, backlog); err != nil {
-                return os.NewSyscallError("listen", err)
-        }
-        return nil
+	}
+	if err := unix.Listen(fd, backlog); err != nil {
+		return os.NewSyscallError("listen", err)
+	}
+	return nil
 }
 
-func  listenDatagram(fd int, laddr *net.UnixAddr) error {
+func listenDatagram(fd int, laddr *net.UnixAddr) error {
 	lsa := &unix.SockaddrUnix{Name: laddr.Name}
 
 	if err := unix.Bind(fd, lsa); err != nil {
 		return os.NewSyscallError("bind", err)
-        }
-        return nil
+	}
+	return nil
 }
 
 func setDefaultListenerSockopts(s int) error {
-        // Allow reuse of recently-used addresses.
-        return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1))
+	// Allow reuse of recently-used addresses.
+	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1))
 }
 
-
 func setDefaultSockopts(s, family, sotype int, ipv6only bool) error {
-        if family == unix.AF_INET6 && sotype != unix.SOCK_RAW {
-                // Allow both IP versions even if the OS default
-                // is otherwise.  Note that some operating systems
-                // never admit this option.
-                unix.SetsockoptInt(s, unix.IPPROTO_IPV6, unix.IPV6_V6ONLY, boolint(ipv6only))
-        }
-        // Allow broadcast.
-        return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_BROADCAST, 1))
+	if family == unix.AF_INET6 && sotype != unix.SOCK_RAW {
+		// Allow both IP versions even if the OS default
+		// is otherwise.  Note that some operating systems
+		// never admit this option.
+		unix.SetsockoptInt(s, unix.IPPROTO_IPV6, unix.IPV6_V6ONLY, boolint(ipv6only))
+	}
+	// Allow broadcast.
+	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_BROADCAST, 1))
 }
 
 // Boolean to int.
 func boolint(b bool) int {
-        if b {
-                return 1
-        }
-        return 0
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func maxListenerBacklog() int {

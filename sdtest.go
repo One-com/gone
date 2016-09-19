@@ -3,9 +3,9 @@ package main
 import (
 	"./sd"
 	"bufio"
+	"fmt"
 	"log"
 	"net"
-	"fmt"
 )
 
 func handleConn(conn net.Conn, quit chan struct{}) {
@@ -27,7 +27,7 @@ func handleConn(conn net.Conn, quit chan struct{}) {
 
 func main() {
 
-	l, err := sd.ListenTCP("tcp",nil)
+	l, err := sd.ListenTCP("tcp", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

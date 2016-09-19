@@ -5,7 +5,7 @@ https://www.freedesktop.org/software/systemd/man/daemon.html
 
 Specifically it supports the following:
 
-   * Socket activation for standard standard net package Listeners and Packetconns, with 
+   * Socket activation for standard standard net package Listeners and Packetconns, with
      minimal code changes.
    * Notify the init system about startup completion or status updates via the
      sd_notify(3) interface.

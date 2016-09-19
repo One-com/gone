@@ -1,12 +1,12 @@
 package sd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
-	"syscall"
-	"strings"
-	"fmt"
 	"strconv"
+	"strings"
+	"syscall"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 
 // In order to keep the working directory the same as when we started we record
 // it at startup.
-var originalWD, _  = os.Getwd()
+var originalWD, _ = os.Getwd()
 
 // StartProcess starts a new process passing it the open files. It
 // starts a new process using the same environment and
@@ -26,9 +26,9 @@ var originalWD, _  = os.Getwd()
 func StartProcess(env []string) (int, error) {
 
 	s := fdState
-	
+
 	files := s.activeFiles()
-	
+
 	// Use the original binary location. This works with symlinks such that if
 	// the file it points to has been changed we will use the updated symlink.
 	argv0, err := exec.LookPath(os.Args[0])
@@ -38,7 +38,7 @@ func StartProcess(env []string) (int, error) {
 
 	// Pass on the environment, except fd fields
 	for _, v := range os.Environ() {
-		if ! (strings.HasPrefix(v, envListenFds+"=") ||
+		if !(strings.HasPrefix(v, envListenFds+"=") ||
 			strings.HasPrefix(v, envListenFdNames+"=") ||
 			strings.HasPrefix(v, envListenPid+"=")) {
 			env = append(env, v)
@@ -57,7 +57,7 @@ func StartProcess(env []string) (int, error) {
 	}
 
 	env = append(env, envNames)
-		
+
 	allFiles := append([]*os.File{os.Stdin, os.Stdout, os.Stderr}, expFiles...)
 	process, err := os.StartProcess(argv0, os.Args, &os.ProcAttr{
 		Dir:   originalWD,
@@ -81,7 +81,7 @@ func ReplaceProcess(sig syscall.Signal) (int, error) {
 	env[0] = fmt.Sprintf("%s=%d", envForkExecPid, pid)
 	if sig != syscall.Signal(0) {
 		c = 1
-		env[1] = fmt.Sprintf("%s=%d",envForkExecSig, sig)
+		env[1] = fmt.Sprintf("%s=%d", envForkExecSig, sig)
 	}
 	return StartProcess(env[0:c])
 }
@@ -89,7 +89,7 @@ func ReplaceProcess(sig syscall.Signal) (int, error) {
 // SignalParentTermination, signals any parent who have asked to be terminated via the ENV
 func SignalParentTermination() error {
 	var sig syscall.Signal = syscall.SIGTERM // default signal
-	
+
 	myparentstr := os.Getenv(envForkExecPid)
 	if myparentstr == "" {
 		return nil // nothing to do here
@@ -106,7 +106,7 @@ func SignalParentTermination() error {
 		}
 		sig = syscall.Signal(mysig)
 	}
-	
+
 	myparent, err := strconv.Atoi(myparentstr)
 	if err == nil && myparent == ppid && ppid != 1 {
 		if err := syscall.Kill(ppid, sig); err != nil {
@@ -114,7 +114,6 @@ func SignalParentTermination() error {
 			return err
 		}
 	}
-		// _log(LvlCRIT,"Failed parsing environment to signal parent", "err", err.Error())
+	// _log(LvlCRIT,"Failed parsing environment to signal parent", "err", err.Error())
 	return err
 }
-

@@ -1,20 +1,20 @@
 package sd
 
 import (
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
 	unix "syscall"
 	"time"
-	"fmt"
-	"errors"
-	"os"
-	"net"
-	"strings"
-	"strconv"
 )
 
 const (
-	envNotifySocket    = "NOTIFY_SOCKET"
-	envWatchdogUsec    = "WATCHDOG_USEC"
-	envWatchdogPid     = "WATCHDOG_PID"
+	envNotifySocket = "NOTIFY_SOCKET"
+	envWatchdogUsec = "WATCHDOG_USEC"
+	envWatchdogPid  = "WATCHDOG_PID"
 )
 
 const (
@@ -37,12 +37,12 @@ const (
 	NotifyWithFds
 )
 
-// ErrSdNotifyNoSocket is informs the caller that there's no NOTIFY_SOCKET avaliable
+// ErrSdNotifyNoSocket is informs the caller that there's no NOTIFY_SOCKET available
 var ErrSdNotifyNoSocket = errors.New("No systemd notify socket in environment")
 
 var watchdogDuration time.Duration
-var watchdogEnabled  bool
-var notifySocket     string
+var watchdogEnabled bool
+var notifySocket string
 
 func init() {
 	if durStr := os.Getenv(envWatchdogUsec); durStr != "" {
@@ -96,9 +96,9 @@ func NotifyStatus(status int, message string) error {
 		return errors.New("Unknown notify status")
 	}
 	if st != "" {
-		lines = append(lines,st)
+		lines = append(lines, st)
 	}
-	lines = append(lines,msg)
+	lines = append(lines, msg)
 	return Notify(0, lines...)
 }
 
@@ -107,7 +107,7 @@ func NotifyStatus(status int, message string) error {
 // the message for systemd to store in the FDSTORE
 func Notify(flags int, lines ...string) (err error) {
 
-	if flags & NotifyUnsetEnv != 0 {
+	if flags&NotifyUnsetEnv != 0 {
 		defer os.Unsetenv(envNotifySocket)
 	}
 
@@ -120,14 +120,13 @@ func Notify(flags int, lines ...string) (err error) {
 		Net:  "unixgram",
 	}
 
-
 	abstract := &net.UnixAddr{
-		Name: fmt.Sprintf("\x00sdnotify%d",os.Getpid()),
+		Name: fmt.Sprintf("\x00sdnotify%d", os.Getpid()),
 		Net:  "unixgram",
 	}
 
 	var conn *net.UnixConn
-	conn, err = net.ListenUnixgram("unixgram",abstract)
+	conn, err = net.ListenUnixgram("unixgram", abstract)
 	if err != nil {
 		return
 	}
@@ -136,7 +135,7 @@ func Notify(flags int, lines ...string) (err error) {
 	state := strings.Join(lines, "\n")
 
 	var oob []byte
-	if flags & NotifyWithFds != 0 {
+	if flags&NotifyWithFds != 0 {
 		var expFiles []int
 		var fdNames string
 		for i, sdf := range fdState.activeFiles() {

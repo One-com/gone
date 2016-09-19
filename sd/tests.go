@@ -1,29 +1,28 @@
 package sd
 
 import (
-	"os"
-	"syscall"
-	"net"
-	"strings"
 	"errors"
+	"net"
+	"os"
 	"strconv"
+	"strings"
+	"syscall"
 	unix "syscall"
 )
-
 
 /*
 * Providing tests like
 * https://www.freedesktop.org/software/systemd/man/sd_is_socket.html
 *
-*/
+ */
 
-// FileTest is a function returning whether an *os.File fulfills certain criterias.
+// FileTest is a function returning whether an *os.File fulfills certain criteria.
 // You can write these your self - and should, if the provided ones don't cover your requirements
 // fully.
 type FileTest func(*os.File) (bool, error)
 
 func (f *sdfile) isMatching(tests ...FileTest) (ok bool, err error) {
-	for _,t := range tests {
+	for _, t := range tests {
 		if ok, err = t(f.File); err != nil {
 			return
 		}
@@ -36,7 +35,6 @@ func (f *sdfile) isMatching(tests ...FileTest) (ok bool, err error) {
 	return
 }
 
-
 //--------------------------------------------------------------------
 
 func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err error) {
@@ -45,7 +43,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 	if err != nil {
 		return
 	}
-	if stat.Mode & unix.S_IFMT != unix.S_IFSOCK {
+	if stat.Mode&unix.S_IFMT != unix.S_IFSOCK {
 		return
 	}
 
@@ -64,7 +62,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 	if want_listening >= 0 {
 		var val int
 		// Test listening
-		val, err = unix.GetsockoptInt(int(fd),syscall.SOL_SOCKET, syscall.SO_ACCEPTCONN)
+		val, err = unix.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_ACCEPTCONN)
 		if err != nil {
 			return
 		}
@@ -82,7 +80,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 
 // IsFifo tests whether the *os.File is a FIFO at the given path
 func IsFifo(path string) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		var stat unix.Stat_t
@@ -91,7 +89,7 @@ func IsFifo(path string) FileTest {
 			return
 		}
 
-		if stat.Mode & unix.S_IFMT != unix.S_IFIFO {
+		if stat.Mode&unix.S_IFMT != unix.S_IFIFO {
 			return
 		}
 
@@ -118,7 +116,7 @@ func IsFifo(path string) FileTest {
 // Test whether the *os.File is a socket of family, socket type and whether it's listening.
 // Values for "dont' care" is respectively 0, 0, and -1
 func IsSocket(family, sotype int, listening int) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 		ok, err = isSocketInternal(fd, sotype, listening)
 		if !ok || err != nil {
@@ -156,7 +154,7 @@ func IsSocket(family, sotype int, listening int) FileTest {
 // IsSocketInet is similar to sd_is_socket_inet
 // Test if the *os.File is a socket of AF_INET/AF_INET6 of the given socket time, listening (0,1,-1) and port
 func IsSocketInet(family int, sotype int, listening int, port uint16) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		ok, err = isSocketInternal(fd, sotype, listening)
@@ -203,7 +201,7 @@ func IsSocketInet(family int, sotype int, listening int, port uint16) FileTest {
 // path is a pointer to allow for "don't care" option by passing nil pointer.
 // The empty string is the unnamed socket.
 func IsSocketUnix(sotype int, listening int, path *string) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		ok, err = isSocketInternal(fd, sotype, listening)
@@ -236,7 +234,7 @@ func IsSocketUnix(sotype int, listening int, path *string) FileTest {
 // Setting addr == nil, means "any" AF_UNIX address.
 // Including linux abstract sockets.
 func IsUNIXListener(addr *net.UnixAddr) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		var sotype int
@@ -272,7 +270,7 @@ func IsUNIXListener(addr *net.UnixAddr) FileTest {
 // IsTCPListener tests whether the *os.File is a listening TCP socket.
 // If addr != nil it's tested whether it is bound to that address.
 func IsTCPListener(addr *net.TCPAddr) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		sotype := unix.SOCK_STREAM
@@ -303,7 +301,7 @@ func IsTCPListener(addr *net.TCPAddr) FileTest {
 
 // IsUDPListener is like IsTCPListener, but for UDP
 func IsUDPListener(addr *net.UDPAddr) FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
 		sotype := unix.SOCK_DGRAM
@@ -332,28 +330,29 @@ func IsUDPListener(addr *net.UDPAddr) FileTest {
 	}
 }
 
-
 // IsListening FileTest to determine whether a file descriptor is a listening socket or not.
 func IsListening(want bool) FileTest {
-	return func (file *os.File) (bool, error) {
+	return func(file *os.File) (bool, error) {
 		fd := file.Fd()
 		var w int
-		if want { w = 1 }
-		return isSocketInternal(fd,0,w)
+		if want {
+			w = 1
+		}
+		return isSocketInternal(fd, 0, w)
 	}
 }
 
 // Test if SO_REUSEPORT is set on the socket
 func IsSoReusePort() FileTest {
-	return func (file *os.File) (ok bool, err error) {
+	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
 
-		ok, err = isSocketInternal(fd,0,-1)
+		ok, err = isSocketInternal(fd, 0, -1)
 		if !ok && err != nil {
 			return
 		}
 
-		val, err := unix.GetsockoptInt(int(fd),syscall.SOL_SOCKET, reusePort)
+		val, err := unix.GetsockoptInt(int(fd), syscall.SOL_SOCKET, reusePort)
 		if err != nil {
 			return
 		}
@@ -376,7 +375,6 @@ func sockaddrToTCP(sa unix.Sockaddr) net.Addr {
 	return nil
 }
 
-
 func sockaddrToUDP(sa unix.Sockaddr) net.Addr {
 	switch sa := sa.(type) {
 	case *unix.SockaddrInet4:
@@ -386,7 +384,6 @@ func sockaddrToUDP(sa unix.Sockaddr) net.Addr {
 	}
 	return nil
 }
-
 
 func sockaddrToUnix(sa unix.Sockaddr) net.Addr {
 	if s, ok := sa.(*unix.SockaddrUnix); ok {
@@ -420,33 +417,32 @@ func sockaddrToIP(sa unix.Sockaddr) net.Addr {
 }
 
 func zoneToString(zone int) string {
-        if zone == 0 {
-                return ""
-        }
-        if ifi, err := net.InterfaceByIndex(zone); err == nil {
-                return ifi.Name
-        }
-        return uitoa(uint(zone))
+	if zone == 0 {
+		return ""
+	}
+	if ifi, err := net.InterfaceByIndex(zone); err == nil {
+		return ifi.Name
+	}
+	return uitoa(uint(zone))
 }
 
 // Convert unsigned integer to decimal string.
 func uitoa(val uint) string {
-        if val == 0 { // avoid string allocation
-                return "0"
-        }
-        var buf [20]byte // big enough for 64bit value base 10
-        i := len(buf) - 1
-        for val >= 10 {
-                q := val / 10
-                buf[i] = byte('0' + val - q*10)
-                i--
-                val = q
-        }
-        // val < 10
-        buf[i] = byte('0' + val)
-        return string(buf[i:])
+	if val == 0 { // avoid string allocation
+		return "0"
+	}
+	var buf [20]byte // big enough for 64bit value base 10
+	i := len(buf) - 1
+	for val >= 10 {
+		q := val / 10
+		buf[i] = byte('0' + val - q*10)
+		i--
+		val = q
+	}
+	// val < 10
+	buf[i] = byte('0' + val)
+	return string(buf[i:])
 }
-
 
 func sotype2netUnix(sotype int) (nett string, err error) {
 	switch sotype {
@@ -475,7 +471,6 @@ func net2sotypeUnix(nett string) (sotype int, err error) {
 	}
 	return
 }
-
 
 func addrFunc(family, sotype int) func(unix.Sockaddr) net.Addr {
 	switch family {
