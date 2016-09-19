@@ -162,15 +162,23 @@ func (f *stdformatter) SetFlags(flags int) HandlerOption {
 	return FlagsOpt(flags)
 }
 
+// SetPrefix creates a HandlerOption to set the formating prefix
+// This is a method wrapper to be able to have the swapper
+// call it genericly on different formatters to support
+// stdlib operations SetFlags/SetPrefix/SetOutput
 func (f *stdformatter) SetPrefix(prefix string) HandlerOption {
 	return PrefixOpt(prefix)
 }
 
+// SetOutput creates a HandlerOption to se the output writer
+// This is a method wrapper to be able to have the swapper
+// call it genericly on different formatters to support
+// stdlib operations SetFlags/SetPrefix/SetOutput
 func (f *stdformatter) SetOutput(w io.Writer) HandlerOption {
 	return OutputOpt(w)
 }
 
-// Standard Formatter Option to set flags
+// FlagsOpt - Standard Formatter Option to set flags
 func FlagsOpt(flags int) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*stdformatter); ok {
@@ -179,7 +187,7 @@ func FlagsOpt(flags int) HandlerOption {
 	}
 }
 
-// Standard Formatter option to set Prefix
+// PrefixOpt - Standard Formatter option to set Prefix
 func PrefixOpt(prefix string) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*stdformatter); ok {
@@ -188,7 +196,7 @@ func PrefixOpt(prefix string) HandlerOption {
 	}
 }
 
-// Standard Formatter option so set Output
+// OptputOpt - Standard Formatter option so set Output
 func OutputOpt(w io.Writer) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*stdformatter); ok {
