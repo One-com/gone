@@ -79,9 +79,9 @@ func NewStdlibAdapter(logger *Logger, level syslog.Priority, options ...StdlibAd
 
 func (a StdlibAdapter) Write(p []byte) (int, error) {
 	var msg string
+	keyvals := []interface{}{}
 	if a.parse {
 		result := subexps(p)
-		keyvals := []interface{}{}
 		var timestamp string
 		if date, ok := result["date"]; ok && date != "" {
 			timestamp = date
@@ -104,7 +104,7 @@ func (a StdlibAdapter) Write(p []byte) (int, error) {
 	} else {
 		msg = string(p)
 	}
-	if err := a.gonelogger.log(a.level, msg); err != nil {
+	if err := a.gonelogger.log(a.level, msg, keyvals...); err != nil {
 		return 0, err
 	}
 	return len(p), nil

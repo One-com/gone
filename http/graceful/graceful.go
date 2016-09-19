@@ -32,7 +32,7 @@ type Server struct {
 	ConnState func(net.Conn, http.ConnState)
 
 	// shutdown signals the Server to stop serving connections,
-	// and the server to start shutdown proceedure
+	// and the server to start shutdown procedure
 	// (by reading its first and only value)
 	shutdown chan bool
 

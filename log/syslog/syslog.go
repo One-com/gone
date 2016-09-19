@@ -7,6 +7,7 @@ import (
 
 type Priority stdsyslog.Priority
 
+// Stdlib syslog level constants
 const (
 	LOG_EMERG Priority = iota
 	LOG_ALERT
@@ -18,8 +19,7 @@ const (
 	LOG_DEBUG
 )
 
-// aliases
-
+// Aliases
 const (
 	LOG_ERROR Priority = LOG_ERR
 	LOG_WARN  Priority = LOG_WARNING
