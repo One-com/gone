@@ -1,11 +1,11 @@
 package graceful
 
 import (
-        "net"
-        "time"
-        "net/http"
-	"sync"
 	"errors"
+	"net"
+	"net/http"
+	"sync"
+	"time"
 )
 
 // *heavily* inspired from
@@ -17,24 +17,24 @@ import (
 // and then wait for all connections to have terminated.
 // A Timeout can be set to finally kill the last outstanding connections forcefully.
 type Server struct {
-        *http.Server
+	*http.Server
 
-        // Timeout is the duration to allow outstanding requests to survive
-        // before forcefully terminating them.
+	// Timeout is the duration to allow outstanding requests to survive
+	// before forcefully terminating them.
 	// A timeout of 0 will make the server wait forever for connections to close
 	// by them selves. (as per github.com/tylerb/graceful doc.)
-        Timeout time.Duration
+	Timeout time.Duration
 
-        // ConnState specifies an optional callback function that is
-        // called when a client connection changes state. This is a proxy
-        // to the underlying http.Server's ConnState, and the original
-        // must not be set directly.
-        ConnState func(net.Conn, http.ConnState)
+	// ConnState specifies an optional callback function that is
+	// called when a client connection changes state. This is a proxy
+	// to the underlying http.Server's ConnState, and the original
+	// must not be set directly.
+	ConnState func(net.Conn, http.ConnState)
 
-        // shutdown signals the Server to stop serving connections,
-        // and the server to start shutdown proceedure
+	// shutdown signals the Server to stop serving connections,
+	// and the server to start shutdown proceedure
 	// (by reading its first and only value)
-        shutdown chan bool
+	shutdown chan bool
 
 	// Shutdown manager will close this one when shutdown is complete
 	done chan struct{}
@@ -47,7 +47,7 @@ type Server struct {
 	// Ensure only one Serve() call can be active at at time.
 	// When not using SyncShutdown however, a connectionManager/shutdownHandler
 	// can be finishing off an old set of connections in the background
-	runlock sync.Mutex
+	runlock  sync.Mutex
 	quitting bool
 	running  bool
 	killed   int
@@ -55,7 +55,7 @@ type Server struct {
 
 // NotReadyError is returned from a Serve() call if the server is already running, or during shutdown.
 type NotReadyError struct {
-	Err      error
+	Err error
 	// Quitting is true when a shutdown is in progress
 	Quitting bool
 }
@@ -77,7 +77,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 	if srv.quitting {
 		srv.runlock.Unlock()
 		return &NotReadyError{
-			Err: errors.New("Shutdown in progress"),
+			Err:      errors.New("Shutdown in progress"),
 			Quitting: true,
 		}
 	}
@@ -92,14 +92,13 @@ func (srv *Server) Serve(listener net.Listener) error {
 	srv.running = true
 	srv.quitting = false
 
-
 	// A channel to ask the server to shutdown
 	srv.shutdown = make(chan bool)
 	// A channel for clients to wait for shutdown complete
 	srv.done = make(chan struct{})
 	srv.killed = 0
 	srv.runlock.Unlock()
-	
+
 	// Track connection state
 	add := make(chan net.Conn)
 	remove := make(chan net.Conn)
@@ -129,7 +128,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 
 	// To tell the shutdown manager it's actions have had effect here.
 	exited := make(chan struct{})
-	
+
 	go srv.manageConnections(add, remove, stop, kill)
 
 	// Listen for shutdown events and manage the shutdown procedure
@@ -162,7 +161,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 
 	// Ensure shutdown is activated and record whether it was done by a proper call to shutdown
 	// Read the shutdown channel to see if we trigger shutdown here
-	// If a proper Shutdown() was requested, we will read false 
+	// If a proper Shutdown() was requested, we will read false
 	extraordinary_exit := <-srv.shutdown
 	if extraordinary_exit {
 		if srv.ErrorLog != nil {
@@ -171,7 +170,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 	}
 
 	close(exited) // don't let the shutdown manager run to end unless we've gotten here.
-	
+
 	// HTTP server exited... decide whether to wait for still running connections here
 	if srv.SyncShutdown {
 		<-srv.done
@@ -222,7 +221,7 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 	// All subsequent clients will read a closed channel == false
 	srv.shutdown <- true
 	close(srv.shutdown)
-	
+
 	// START SHUTDOWN PROCEDURE:
 	// fmt.Println("Shutdown initiated")
 	// Cause shutdown
@@ -237,7 +236,7 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 
 	// Wait for effect
 	<-exited
-	
+
 	// Request done notification
 	// send the done channel to all conns listening for a stop event
 	// for them to reply on
@@ -251,9 +250,9 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 		case killed = <-done:
 			// Fine, no need to kill connections.
 		case <-time.After(srv.Timeout):
-			kill <-struct{}{}
+			kill <- struct{}{}
 			// wait for reply
-			killed = <- done
+			killed = <-done
 		}
 	} else {
 		killed = <-done // Wait for all connection to be shut down
@@ -264,7 +263,7 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 	srv.killed = killed
 	srv.quitting = false
 	srv.running = false
-	close(srv.done)  // server is ready for reuse.
+	close(srv.done) // server is ready for reuse.
 	srv.runlock.Unlock()
 }
 
@@ -275,7 +274,7 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 func (srv *Server) manageConnections(add, remove chan net.Conn, stop chan chan int, kill chan struct{}) {
 	var done chan int
 	var killed int
-	connections := make(map[net.Conn]struct{},10)
+	connections := make(map[net.Conn]struct{}, 10)
 	for {
 		select {
 		case conn := <-add:
@@ -298,7 +297,7 @@ func (srv *Server) manageConnections(add, remove chan net.Conn, stop chan chan i
 		case <-kill: // don't care for the stop reply any more. Now we're killing.
 			for k := range connections {
 				_ = k.Close() // nothing to do here if it errors
-				killed ++
+				killed++
 			}
 			// We have to let the conns remove them selves from here.
 			// Else we'll get remove events after we've considered us done.
