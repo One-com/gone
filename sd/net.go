@@ -5,7 +5,6 @@ import (
 	"os"
 	unix "syscall"
 	"errors"
-//	"github.com/pkg/errors"
 )
 
 var listenerBacklog = maxListenerBacklog()
@@ -18,19 +17,14 @@ func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, g
 	// look for an inherited listener
 	file, gotName , err = FileWith(wantName, tests...)
 	if err != nil {
-		//err = errors.Wrap(err, "failed FileWith")
 		return
 	}
 	if file != nil {
 		l, err = net.FileListener(file)
 		if err != nil {
-			//err = errors.Wrap(err, "failed FileListener")
 			return
 		}
 		err = Export(gotName,file)
-		if err != nil {
-			//err = errors.Wrap(err, "failed Export")
-		}
 		file.Close() // FileListener made a dup(). Export made a dup(). This copy is useless
 	}
 	return
@@ -45,19 +39,14 @@ func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketCon
 	// look for an inherited listener
 	file, gotName , err = FileWith(wantName, tests...)
 	if err != nil {
-		//err = errors.Wrap(err, "failed FileWith")
 		return
 	}
 	if file != nil {
 		l, err = net.FilePacketConn(file)
 		if err != nil {
-			//err = errors.Wrap(err, "failed FilePacketConn")
 			return
 		}
 		err = Export(gotName,file)
-		if err != nil {
-			//err = errors.Wrap(err, "failed Export")
-		}
 		file.Close() // FilePacketConn made a dup(). Export made a dup(). This copy is useless
 	}
 	return

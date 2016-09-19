@@ -1,48 +1,48 @@
-package sd_test
+package sd
 
 import (
-	"os/exec"
-	"net"
-	"fmt"
-	"bufio"
-	"time"
+	"net/http"
 	"testing"
-	"syscall"
 )
 
-var systemd_activate = "/lib/systemd/systemd-activate"
+func TestFileWith(t *testing.T) {
 
-var listen_address = "127.0.0.1:54321"
+	s := &http.Server{}
 
-func TestSocketActivation(t *testing.T) {
-
-	cmd := exec.Command(systemd_activate , "-E", "LISTEN_PID_IGNORE=1", "--listen=" + listen_address, "go", "run", "../sdtest.go" )
-
-	err := cmd.Start()
+	// make a listener
+	l, err := NamedListenTCP("mylistener", "tcp", nil)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	defer func() {
-		cmd.Process.Signal(syscall.SIGTERM)
-		cmd.Wait()
+	addr := l.Addr()
+
+	again := make(chan struct{})
+	go func() {
+		s.Serve(l)
+		Reset()
+		close(again)
 	}()
 
-	time.Sleep(time.Millisecond)
+	l.Close()
 
-	// Connection and readback
-	conn, err := net.Dial("tcp", listen_address)
+	<- again
+
+	l2,_, err := InheritNamedListener("mylistener")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
-	data := "Hello\n"
-	fmt.Fprintf(conn, data)
-	status, err := bufio.NewReader(conn).ReadString('\n')
-	if err != nil {
-		t.Fatalf(err.Error())
+
+	go func() {
+		s.Serve(l2)
+	}()
+
+	client := &http.Client{}
+
+	resp, err := client.Get("http://" + addr.String() + "/")
+
+	if err != nil || resp.StatusCode != 404 {
+		t.Fatal("Failed using socket")
 	}
-	if status != data  {
-		t.Fatalf("Din't get back test data. Expected <%s>, got <%s>", data, status)
-	}
-	fmt.Fprintln(conn, "quit")
+
 }

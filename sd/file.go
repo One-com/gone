@@ -32,7 +32,7 @@ type sdfile struct {
 	name string    // fd name from systemd. This is *not* the same as presented to Open()
 }
 
-func (f *sdfile) Close() error {
+func (f *sdfile) close() error {
 	return f.File.Close()
 }
 
@@ -84,17 +84,17 @@ func (s *state) _activeFiles() []*sdfile {
 
 // Cleanup closes all inherited file descriptors which have not been Exported
 func Cleanup() {
-	fdState.Cleanup()
+	fdState.cleanup()
 }
 
 // Cleanup closes all inactive files
-func (s *state) Cleanup() {
+func (s *state) cleanup() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	for _,f := range s.available {
 		if f != nil {
-			f.Close()
+			f.close()
 		}
 	}
 }
@@ -102,17 +102,17 @@ func (s *state) Cleanup() {
 // Reset closes all inherited an non Exported file descriptors and makes the current
 // Exported set of file descriptors avaible again as if they were inherited.
 func Reset() {
-	fdState.Reset()
+	fdState.reset()
 }
 
 // Reset closes all non-active files and all returned listeners/packetconns/files
 // and makes the current active files available again
-func (s *state) Reset() {
+func (s *state) reset() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	for _,f := range s.available {
 		if f != nil {
-			f.Close()
+			f.close()
 		}
 	}
 	s.available = s._activeFiles()

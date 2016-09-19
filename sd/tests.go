@@ -7,7 +7,6 @@ import (
 	"strings"
 	"errors"
 	"strconv"
-	//"golang.org/x/sys/unix"
 	unix "syscall"
 )
 
@@ -81,7 +80,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 
 //-------------------------------------------------------------------------------
 
-// Test whether the *os.File is a FIFO at the given path
+// IsFifo tests whether the *os.File is a FIFO at the given path
 func IsFifo(path string) FileTest {
 	return func (file *os.File) (ok bool, err error) {
 		fd := file.Fd()
@@ -200,7 +199,7 @@ func IsSocketInet(family int, sotype int, listening int, port uint16) FileTest {
 	}
 }
 
-// Like libsystemd sd-daemon sd_is_socket_unix()
+// IsSocketUnix is like libsystemd sd-daemon sd_is_socket_unix()
 // path is a pointer to allow for "don't care" option by passing nil pointer.
 // The empty string is the unnamed socket.
 func IsSocketUnix(sotype int, listening int, path *string) FileTest {
