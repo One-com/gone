@@ -150,7 +150,8 @@ func (l *Logger) AutoColoring() {
 	l.h.AutoColoring()
 }
 
-// With ties a sub-Context to the Logger.
+// With ties a sub-context to the Logger and create a new logger which will log
+// the supplied K/V values as context with every log event.
 func (l *Logger) With(kv ...interface{}) *Logger {
 	d := normalize(kv)
 	// copy the pointers to handler and config to ease access later

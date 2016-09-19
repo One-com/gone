@@ -196,7 +196,7 @@ func PrefixOpt(prefix string) HandlerOption {
 	}
 }
 
-// OptputOpt - Standard Formatter option so set Output
+// OutputOpt - Standard Formatter option so set Output
 func OutputOpt(w io.Writer) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*stdformatter); ok {
@@ -205,7 +205,7 @@ func OutputOpt(w io.Writer) HandlerOption {
 	}
 }
 
-// Standard Formatter option to set LevelPrefixes
+// LevelPrefixOpt - Standard Formatter option to set LevelPrefixes
 func LevelPrefixOpt(arr *[8]string) HandlerOption {
 	return func(c CloneableHandler) {
 		if h, ok := c.(*stdformatter); ok {

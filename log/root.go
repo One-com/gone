@@ -12,7 +12,7 @@ import (
 // The default log context
 var defaultLogger *Logger
 
-// Returns the default Logger - which is also the root of the name hierarchy.
+// Default returns the default Logger - which is also the root of the name hierarchy.
 func Default() *Logger {
 	return defaultLogger
 }
@@ -23,7 +23,7 @@ func init() {
 	man = newManager(defaultLogger)
 }
 
-// Sets the default logger to the minimal mode, where it doesn't log timestamps
+// Minimal sets the default logger to the minimal mode, where it doesn't log timestamps
 // But only emits systemd/syslog-compatible "<level>message" lines.
 func Minimal() {
 	minHandler := NewMinFormatter(SyncWriter(os.Stdout))
@@ -32,7 +32,7 @@ func Minimal() {
 	defaultLogger.DoTime(false)
 }
 
-// Create a child K/V logger of the default logger
+// With will create a sub-context K/V logger of the default logger with additional key/value context.
 func With(kv ...interface{}) *Logger {
 	return defaultLogger.With(kv...)
 }
@@ -145,7 +145,6 @@ func DecLevel() bool {
 func SetLevel(level syslog.Priority) bool {
 	return defaultLogger.SetLevel(level)
 }
-
 
 // SetPrintLevel sets the log level used by Print*() calls.
 // If the second argument is true, Println(), Printf(), Print() will respect the Logger log level.
