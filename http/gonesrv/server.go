@@ -91,7 +91,7 @@ func (srv *Server) Listen() (err error) {
 			err = ErrNoListener
 			return
 		}
-		
+
 		// make a fresh listener
 		var tl *net.TCPListener
 		tl, err = net.ListenTCP("tcp", addr)
