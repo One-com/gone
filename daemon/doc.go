@@ -11,7 +11,7 @@ Specifically it supports the following:
      in the systemd unit file. (although you can)
    * Notify the init system about startup completion or status updates via the
      sd_notify(3) interface.
-   * Socket activation for standard standard net package Listeners and Packetconns, with 
+   * Socket activation for standard standard net package Listeners and Packetconns, with
      minimal code changes.
    * Using systemd FDSTORE to hold open filedescriptors during restart.
 

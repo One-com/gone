@@ -2,31 +2,34 @@ package gonesrv
 
 import (
 	"crypto/tls"
-	"github.com/One-com/gone/sd"
-	"github.com/One-com/gone/http/graceful"
-	"net"
-	"fmt"
 	"errors"
+	"fmt"
+	"github.com/One-com/gone/http/graceful"
+	"github.com/One-com/gone/sd"
+	"net"
 )
 
+// ErrNoListener is returned from Listen() when the Server didn't manage to find the
+// required inherited socket to listen on (when Server.InheritOnly is true)
 var ErrNoListener = errors.New("No Listener")
 
-// HTTP server implementing the newstyled Server interface
+// Server wraps around gone/http/graceful HTTP server implementing gone/the daemon/srv.Server interface
 // If ErrorLog is set, errors will be logged to it.
 type Server struct {
 	*graceful.Server
 
 	description string
-	
+
 	// The listener this server has picked to listen on.
-	listener     net.Listener
+	listener net.Listener
 
 	// ListenerFdName can be set to pick a named file descriptor as
 	// Listener via LISTEN_FDNAMES
 	// It is updated to contain the name of the chosen file descriptor
 	// - if any
-	ListenerFdName       string
+	ListenerFdName string
 
+	// Extra sd.FileTest to apply to the listener inherited.
 	ExtraFileTests []sd.FileTest
 
 	// InheritOnly set to true requires the Listener to be inherited via
@@ -40,7 +43,7 @@ type Server struct {
 	// It will be called as a callback with the listener chosen before it's set.
 	// The returned listener is set instead - wrapped in any TLS if
 	// there's a TLSConfig set.
-	PrepareListener func (net.Listener) (net.Listener)
+	PrepareListener func(net.Listener) net.Listener
 }
 
 func (srv *Server) Serve() (err error) {
@@ -48,14 +51,16 @@ func (srv *Server) Serve() (err error) {
 	return
 }
 
+// Description implement gone/daemon/srv.Descripter interface.
 func (srv *Server) Description() string {
 	return fmt.Sprintf("%s socket(%s)", srv.description, srv.ListenerFdName)
 }
 
-// Pick an already open listener FD or create one.
+// Listen implement the gone/daemon/src.Listener interface and
+// pick an already open listener FD or create one.
 func (srv *Server) Listen() (err error) {
 	saddr := srv.Addr
-	if saddr == "" && ! srv.InheritOnly {
+	if saddr == "" && !srv.InheritOnly {
 		saddr = ":http"
 	}
 
@@ -73,7 +78,7 @@ func (srv *Server) Listen() (err error) {
 	var filetests []sd.FileTest
 	filetests = append(filetests, sd.IsTCPListener(addr))
 	filetests = append(filetests, srv.ExtraFileTests...)
-	
+
 	ln, name, err = sd.InheritNamedListener(name, filetests...)
 	if err != nil {
 		return
@@ -97,7 +102,7 @@ func (srv *Server) Listen() (err error) {
 			ln = tl
 		}
 	}
-	
+
 	srv.ListenerFdName = name
 	srv.setListener(ln)
 	return

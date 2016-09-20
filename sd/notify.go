@@ -18,22 +18,23 @@ const (
 )
 
 const (
-	// Don't send a STATUS
+	// StatusNone - Don't send a STATUS
 	StatusNone = iota
-	// Tell systemd status is READY
+	// StatusReady - Tell systemd status is READY
 	StatusReady
-	// Tell systemd status is RELOADING
+	// StatusReloasing - Tell systemd status is RELOADING
 	StatusReloading
-	// Tell systemd status is STOPPING
+	// StatusStopping - Tell systemd status is STOPPING
 	StatusStopping
-	// Tell the systemd WATCHDOG we are alive
+	// StatusWatchdog - Tell the systemd WATCHDOG we are alive
 	StatusWatchdog
 )
 
 const (
-	// Unset the systemd notify/Watchdog env vars
+	// NotifyUnsetEnv flag provided to Notify() to unset the systemd notify/Watchdog env vars
 	NotifyUnsetEnv = 1 << iota
-	// Send active file descriptors along with systemd notify message to FDSTORE
+	// NotifyWithFds flag to Notify() to instruct it to send active file descriptors along with
+	// systemd notify message to FDSTORE
 	NotifyWithFds
 )
 

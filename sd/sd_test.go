@@ -26,9 +26,9 @@ func TestFileWith(t *testing.T) {
 
 	l.Close()
 
-	<- again
+	<-again
 
-	l2,_, err := InheritNamedListener("mylistener")
+	l2, _, err := InheritNamedListener("mylistener")
 	if err != nil {
 		t.Fatal(err)
 	}

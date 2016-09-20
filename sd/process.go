@@ -86,7 +86,7 @@ func ReplaceProcess(sig syscall.Signal) (int, error) {
 	return StartProcess(env[0:c])
 }
 
-// SignalParentTermination, signals any parent who have asked to be terminated via the ENV
+// SignalParentTermination signals any parent who have asked to be terminated via the ENV
 func SignalParentTermination() error {
 	var sig syscall.Signal = syscall.SIGTERM // default signal
 

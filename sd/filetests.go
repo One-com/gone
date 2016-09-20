@@ -342,7 +342,7 @@ func IsListening(want bool) FileTest {
 	}
 }
 
-// Test if SO_REUSEPORT is set on the socket
+// IsSoReusePort - Test if SO_REUSEPORT is set on the socket
 func IsSoReusePort() FileTest {
 	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()

@@ -1,13 +1,13 @@
 package daemon
 
 import (
-	"os"
 	"errors"
-	"sync"
 	"fmt"
-	"syscall"
-	"github.com/One-com/gone/sd"
 	"github.com/One-com/gone/daemon/srv"
+	"github.com/One-com/gone/sd"
+	"os"
+	"sync"
+	"syscall"
 )
 
 // CleanupFunc is a function to call after a srv.Server is fully exited.
@@ -21,41 +21,41 @@ type CleanupFunc func() error
 type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 
 var (
-	srvmu  sync.Mutex
+	srvmu    sync.Mutex
 	revision int
-	servers []srv.Server
+	servers  []srv.Server
 	cleanups []CleanupFunc
 
-	stopch   chan bool // true to do graceful shutdown
-	reload   chan struct{}
+	stopch chan bool // true to do graceful shutdown
+	reload chan struct{}
 )
 
 var _master *srv.MultiServer
 
 func init() {
 	// creat the channel to propate reload events to the reload manager
-        reload = make(chan struct{}, 1) // async
+	reload = make(chan struct{}, 1) // async
 
-        // create the channel which tells the master reload-loop to exit
-        stopch = make(chan bool, 1) // async
+	// create the channel which tells the master reload-loop to exit
+	stopch = make(chan bool, 1) // async
 
 	_master = &srv.MultiServer{}
 }
 
 // SetLogger sets a custom log function.
 func SetLogger(f srv.LoggerFunc) {
-        _master.SetLogger(f)
+	_master.SetLogger(f)
 }
 
-// Call the custom log function set.
+// Log calls the custom log function set - if any
 func Log(level int, msg string) {
 	_master.Log(level, msg)
 }
 
 type runcfg struct {
-	instantiate      ConfigureFunc
-	syncReload       bool
-	readyCallbacks   []func() error
+	instantiate    ConfigureFunc
+	syncReload     bool
+	readyCallbacks []func() error
 }
 
 // RunOption change the behaviour of Run()
@@ -91,7 +91,7 @@ func SignalParentOnReady() RunOption {
 
 // SdNotifyOnReady makes Run() notify systemd with STATUS=READY when all servers have started.
 // If mainpid is true, the MAINPID of the current process is also notified.
-func SdNotifyOnReady(mainpid bool,status string) RunOption {
+func SdNotifyOnReady(mainpid bool, status string) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.readyCallbacks = append(rc.readyCallbacks, func() error {
 			var msg [3]string
@@ -100,11 +100,11 @@ func SdNotifyOnReady(mainpid bool,status string) RunOption {
 			c++
 			if mainpid {
 				pid := os.Getpid()
-				msg[c] = fmt.Sprintf("MAINPID=%d",pid)
+				msg[c] = fmt.Sprintf("MAINPID=%d", pid)
 				c++
 			}
 			if status != "" {
-				msg[c] = fmt.Sprintf("STATUS=%s",status)
+				msg[c] = fmt.Sprintf("STATUS=%s", status)
 				c++
 			}
 			err := sd.Notify(0, msg[0:c]...)
@@ -125,23 +125,23 @@ func SdNotifyOnReady(mainpid bool,status string) RunOption {
 // replace the current running servers with the new set, using the gone/sd package to
 // re-create sockets without closing TCP connections.
 func Run(opts ...RunOption) (err error) {
-	cfg := &runcfg{readyCallbacks: make([]func() error,0)}
+	cfg := &runcfg{readyCallbacks: make([]func() error, 0)}
 	for _, o := range opts {
-                o(cfg)
-        }
+		o(cfg)
+	}
 
 	if cfg.instantiate == nil {
 		return errors.New("Don't know how to configure servers")
 	}
-	
+
 	readyCallback := func() error {
 		var err error
-		for _,f := range cfg.readyCallbacks {
-			err = f()			
+		for _, f := range cfg.readyCallbacks {
+			err = f()
 		}
 		return err
 	}
-	
+
 	var first_mu sync.Mutex
 	first_config_load_done := make(chan struct{})
 
@@ -160,7 +160,7 @@ func Run(opts ...RunOption) (err error) {
 				srvmu.Unlock()
 				_master.Shutdown() // noop if not started
 			} else {
-				_master.Log(srv.LvlCRIT,"Error setting up services (not reloading)")
+				_master.Log(srv.LvlCRIT, "Error setting up services (not reloading)")
 			}
 			first_mu.Lock()
 			if first_config_load_done != nil {
@@ -187,7 +187,7 @@ MainLoop:
 			srvmu.Unlock()
 			return errors.New("No Config")
 		}
-		running_servers  := servers
+		running_servers := servers
 		running_revision := revision
 		running_cleanups := cleanups
 		srvmu.Unlock()
@@ -196,7 +196,7 @@ MainLoop:
 		if done, err = _master.Serve(running_servers, readyCallback); err != nil {
 			return
 		}
-		
+
 		/* Should we exit? */
 		select {
 		case graceful_exit = <-stopch:
@@ -209,10 +209,10 @@ MainLoop:
 			}
 		}
 	}
-	_master.Log(srv.LvlNOTICE,"Exit mainloop")
+	_master.Log(srv.LvlNOTICE, "Exit mainloop")
 	if graceful_exit {
 		srvmu.Lock()
-		_master.Log(srv.LvlNOTICE,"Waiting for graceful shutdown")
+		_master.Log(srv.LvlNOTICE, "Waiting for graceful shutdown")
 		recordShutdown(revision, cleanups, done)
 		srvmu.Unlock()
 	}
@@ -227,7 +227,7 @@ func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}) {
 			_master.Log(srv.LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
 		}
 	}
-	_master.Log(srv.LvlNOTICE,fmt.Sprintf("All servers (rev=%d) shutdown", rev))
+	_master.Log(srv.LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
 }
 
 // Reload tells Run() to instatiate new servers and continue serving with them.
@@ -243,11 +243,11 @@ func Reload() {
 // Exit tells Run() to exit. If graceful is true, Run() will wait for all servers to nicely cleanup.
 func Exit(graceful bool) {
 	select {
-        case stopch <- graceful: // buffered by 1 exit operation at a time
-                _master.Shutdown()
+	case stopch <- graceful: // buffered by 1 exit operation at a time
+		_master.Shutdown()
 	default:
-                _master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
-        }	
+		_master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
+	}
 }
 
 // ReplaceProcess spawns a new version of the program.

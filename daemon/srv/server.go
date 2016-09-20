@@ -1,22 +1,22 @@
 package srv
 
 import (
-	"sync"
 	"errors"
 	"fmt"
 	"github.com/One-com/gone/sd"
+	"sync"
 )
 
 // Syslog priority levels
 const (
-        LvlEMERG   int = iota // Not to be used by applications.
-        LvlALERT
-        LvlCRIT
-        LvlERROR
-        LvlWARN
-        LvlNOTICE
-        LvlINFO
-        LvlDEBUG
+	LvlEMERG int = iota // Not to be used by applications.
+	LvlALERT
+	LvlCRIT
+	LvlERROR
+	LvlWARN
+	LvlNOTICE
+	LvlINFO
+	LvlDEBUG
 )
 
 // A LoggerFunc can be set to make the newstyle library log to a custom log library
@@ -26,8 +26,8 @@ type LoggerFunc func(level int, message string)
 // The default log function logs to stdlib log.Println()
 func (m *MultiServer) SetLogger(f LoggerFunc) {
 	m.logmu.Lock()
-        defer m.logmu.Unlock()
-        m.logger = f
+	defer m.logmu.Unlock()
+	m.logger = f
 }
 
 // Server is an server started by the master MultiServer, by calling Serve() which is expected to block
@@ -42,8 +42,8 @@ func (m *MultiServer) SetLogger(f LoggerFunc) {
 // and ready to (maybe) be restarted by another invocation of the master MultiServer
 // Serve() method.
 type Server interface {
-	Serve() error   // start serving and block until exit
-	Shutdown()      // async req. to shutdown, must not block
+	Serve() error // start serving and block until exit
+	Shutdown()    // async req. to shutdown, must not block
 }
 
 // Listener - Servers implementing the Listener interface will be called upon to Listen() before being asked to Serve()
@@ -71,23 +71,23 @@ type Waiter interface {
 type MultiServer struct {
 	logmu  sync.RWMutex
 	logger LoggerFunc
-	
-	mu      sync.Mutex      // protects the "running" attr of the master server
+
+	mu      sync.Mutex // protects the "running" attr of the master server
 	servers []Server
 	exited  sync.WaitGroup  // cleared when all servers exited Serve()
 	done    *sync.WaitGroup // cleared when all servers shut down. new for each run
 	running bool
-	wait    bool            // let Serve() wait for all servers before exit
+	wait    bool // let Serve() wait for all servers before exit
 	err     error
 }
 
 // Log is used by a MultiServer to log internal actions if a LoggerFunc is set.
 // You can call this your self if you need to. It's go-routine safe if the provided Log function is.
 func (m *MultiServer) Log(level int, msg string) {
-        m.logmu.RLock()        
-        if m.logger != nil {
-                m.logger(level, msg)
-        }
+	m.logmu.RLock()
+	if m.logger != nil {
+		m.logger(level, msg)
+	}
 	m.logmu.RUnlock()
 }
 
@@ -102,21 +102,20 @@ func (m *MultiServer) Serve(servers []Server, ready_cb func() error) (done chan 
 	if servers == nil || len(servers) == 0 {
 		return nil, errors.New("No servers")
 	}
-	
+
 	m.mu.Lock()
 	if m.running {
 		m.mu.Unlock()
 		return nil, errors.New("Already serving")
 	}
 
-
 	m.servers = servers
-	done_chan := make (chan struct{})
+	done_chan := make(chan struct{})
 
 	dwg := new(sync.WaitGroup)
 	m.done = dwg
 
-	err = m.start()       // start the servers - does not block
+	err = m.start() // start the servers - does not block
 	if err != nil {
 		m.mu.Unlock()
 		return
@@ -154,13 +153,12 @@ func (m *MultiServer) Serve(servers []Server, ready_cb func() error) (done chan 
 	return done_chan, m.err
 }
 
-
 // Shutdown send an async signal to the server to exit Serve() by calling Shutdown in the
 // individual servers
 func (m *MultiServer) Shutdown() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if  m.running {
+	if m.running {
 		m.stop()
 	}
 }
@@ -171,7 +169,7 @@ func (m *MultiServer) start() (err error) {
 
 	for _, s := range m.servers {
 		if s != nil {
-			if l, ok := s.(Listener); ok  {
+			if l, ok := s.(Listener); ok {
 				err = l.Listen()
 				if err != nil {
 					return
@@ -199,13 +197,13 @@ func (m *MultiServer) start() (err error) {
 
 func (m *MultiServer) stop() {
 	// Tell all servers to stop
-	for _,s := range m.servers {
+	for _, s := range m.servers {
 		if m != nil {
 			var description string
-			if ds,ok := s.(Descripter); ok {
+			if ds, ok := s.(Descripter); ok {
 				description = ds.Description()
 			}
-			m.Log(LvlDEBUG,fmt.Sprintf("Shutting down (%s)", description))
+			m.Log(LvlDEBUG, fmt.Sprintf("Shutting down (%s)", description))
 			s.Shutdown()
 		}
 	}
@@ -215,8 +213,6 @@ func (m *MultiServer) stop() {
 	m.exited.Done()
 }
 
-
-
 // Launch a specific server - does not block
 func (m *MultiServer) startServer(s Server) {
 
@@ -225,12 +221,12 @@ func (m *MultiServer) startServer(s Server) {
 	done := m.done
 	exited := make(chan struct{})
 
-	done.Add(1)   // Undone when the Waiter go-routine exits
+	done.Add(1) // Undone when the Waiter go-routine exits
 
 	// start a go-routine to wait for a "waiter" efter servers have exited.
 	go func() {
 		// Wait for server to exit, then decide whether to wait for done.
-		<- exited
+		<-exited
 		// Servers not implementing Wait() are expected to be "done"
 		// when they have "exited".
 		if waiter, ok := s.(Waiter); ok {
@@ -249,9 +245,9 @@ func (m *MultiServer) startServer(s Server) {
 		if ds, ok := s.(Descripter); ok {
 			description = ds.Description()
 		}
-		
-		m.Log(LvlINFO,fmt.Sprintf("Starting (%s)", description))
-		
+
+		m.Log(LvlINFO, fmt.Sprintf("Starting (%s)", description))
+
 		// We sit here until "something" provokes Serve() to exit
 		// We have to log the error returned from the individual Serve()
 		// since the master server err return can 1) not convey multiple errors,
@@ -261,11 +257,11 @@ func (m *MultiServer) startServer(s Server) {
 			m.mu.Lock()
 			m.err = err
 			m.mu.Unlock()
-			m.Log(LvlERROR,fmt.Sprintf("Server (%s) error: %s",
+			m.Log(LvlERROR, fmt.Sprintf("Server (%s) error: %s",
 				description,
 				err.Error()))
 		} else {
-			m.Log(LvlINFO,fmt.Sprintf("Exited (%s)", description))
+			m.Log(LvlINFO, fmt.Sprintf("Exited (%s)", description))
 		}
 		close(exited)
 	}()
