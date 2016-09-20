@@ -1,7 +1,7 @@
 package main
 
 import (
-	"./sd"
+	sd ".."
 	"bufio"
 	"fmt"
 	"log"
@@ -36,7 +36,10 @@ func main() {
 
 	quit := make(chan struct{})
 
-	sd.NotifyStatus(sd.StatusReady, "Up and running")
+	err = sd.NotifyStatus(sd.StatusReady, "Up and running")
+	if err != nil {
+		log.Println(err)
+	}
 
 	go func() {
 		select {

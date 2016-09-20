@@ -17,7 +17,7 @@ var listen_address = "127.0.0.1:54321"
 
 func TestSocketActivation(t *testing.T) {
 
-	cmd := exec.Command(systemd_activate , "-E", "LISTEN_PID_IGNORE=1", "--listen=" + listen_address, "go", "run", "../sdtest.go" )
+	cmd := exec.Command(systemd_activate , "-E", "LISTEN_PID_IGNORE=1", "--listen=" + listen_address, "go", "run", "testbin/sdtest.go" )
 
 	err := cmd.Start()
 	if err != nil {
