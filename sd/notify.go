@@ -22,7 +22,7 @@ const (
 	StatusNone = iota
 	// StatusReady - Tell systemd status is READY
 	StatusReady
-	// StatusReloasing - Tell systemd status is RELOADING
+	// StatusReloading - Tell systemd status is RELOADING
 	StatusReloading
 	// StatusStopping - Tell systemd status is STOPPING
 	StatusStopping

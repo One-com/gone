@@ -46,6 +46,8 @@ type Server struct {
 	PrepareListener func(net.Listener) net.Listener
 }
 
+// Serve implement the gone/daemon/srv.Server interface.
+// Shutdown is already implemented by the graceful server.
 func (srv *Server) Serve() (err error) {
 	err = srv.Server.Serve(srv.listener)
 	return
@@ -88,19 +90,19 @@ func (srv *Server) Listen() (err error) {
 		if srv.InheritOnly {
 			err = ErrNoListener
 			return
-		} else {
-			// make a fresh listener
-			var tl *net.TCPListener
-			tl, err = net.ListenTCP("tcp", addr)
-			if err != nil {
-				return
-			}
-			err = sd.Export(name, tl)
-			if err != nil {
-				return
-			}
-			ln = tl
 		}
+		
+		// make a fresh listener
+		var tl *net.TCPListener
+		tl, err = net.ListenTCP("tcp", addr)
+		if err != nil {
+			return
+		}
+		err = sd.Export(name, tl)
+		if err != nil {
+			return
+		}
+		ln = tl
 	}
 
 	srv.ListenerFdName = name
