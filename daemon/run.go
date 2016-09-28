@@ -21,11 +21,11 @@ type CleanupFunc func() error
 type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 
 var (
-	srvmu    sync.Mutex
-	revision int
-	rootErr  error
-	servers  []srv.Server
-	cleanups []CleanupFunc
+	srvmu     sync.Mutex
+	revision  int
+	configErr error
+	servers   []srv.Server
+	cleanups  []CleanupFunc
 
 	stopch chan bool // true to do graceful shutdown
 	reload chan struct{}
@@ -162,9 +162,9 @@ func Run(opts ...RunOption) (err error) {
 				_master.Shutdown() // noop if not started
 			} else {
 				srvmu.Lock()
-				rootErr = err
+				configErr = err
 				srvmu.Unlock()
-				_master.Log(srv.LvlCRIT, "Error setting up services (not reloading)")
+				_master.Log(srv.LvlCRIT, fmt.Sprintf("Config load err: %s", configErr.Error()))
 			}
 			first_mu.Lock()
 			if first_config_load_done != nil {
@@ -188,12 +188,13 @@ MainLoop:
 	for {
 		srvmu.Lock()
 		if servers == nil {
-			theErr := rootErr
-			srvmu.Unlock()
-			if theErr == nil {
-				theErr = errors.New("No Config")
+			if configErr == nil {
+				err = errors.New("No Servers")
+			} else {
+				err = configErr
 			}
-			return theErr
+			srvmu.Unlock()
+			return
 		}
 		running_servers := servers
 		running_revision := revision
