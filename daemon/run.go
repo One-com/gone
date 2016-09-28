@@ -23,6 +23,7 @@ type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 var (
 	srvmu    sync.Mutex
 	revision int
+	rootErr  error
 	servers  []srv.Server
 	cleanups []CleanupFunc
 
@@ -160,6 +161,9 @@ func Run(opts ...RunOption) (err error) {
 				srvmu.Unlock()
 				_master.Shutdown() // noop if not started
 			} else {
+				srvmu.Lock()
+				rootErr = err
+				srvmu.Unlock()
 				_master.Log(srv.LvlCRIT, "Error setting up services (not reloading)")
 			}
 			first_mu.Lock()
@@ -184,8 +188,12 @@ MainLoop:
 	for {
 		srvmu.Lock()
 		if servers == nil {
+			theErr := rootErr
 			srvmu.Unlock()
-			return errors.New("No Config")
+			if theErr == nil {
+				theErr = errors.New("No Config")
+			}
+			return theErr
 		}
 		running_servers := servers
 		running_revision := revision
