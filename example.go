@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	stdlog "log"
 	"github.com/One-com/gone/daemon"
 	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/http/gonesrv"
 	"github.com/One-com/gone/http/graceful"
 	"github.com/One-com/gone/log"
+	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/sd"
 	"io"
 	"net/http"
@@ -25,11 +27,15 @@ func myHandlerFunc(cfg string, revision int) http.HandlerFunc {
 }
 
 func newHTTPServer(handler http.HandlerFunc) (s srv.Server) {
+
+	gonelog := log.NewStdlibAdapter(log.Default(), syslog.LOG_CRIT)
+	errorlog := stdlog.New(gonelog, "", stdlog.LstdFlags)
+
 	// basic HTTP server
 	s1 := &http.Server{
 		Addr:    ":4321",
 		Handler: handler,
-		//		ErrorLog: log.New(os.Stdout,"",log.LstdFlags),
+		ErrorLog: errorlog,
 	}
 	// wrapped to get Shutdown() and graceful shutdown
 	s2 := &graceful.Server{
