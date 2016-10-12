@@ -11,7 +11,9 @@ This is not strictly a "framework". The individual packages do not really depend
 
 * **http** Provides extentions of the standard HTTP library. A Server capable of graceful shutdown and a client side failover virtual Transport
 
-* **daemon** wraps the sd package and a lot of daemon management boilerplate code to make if very easy to start a full featured daemon, doing graceful reload and/or zero-downtime restart/upgrades.
+* **daemon** Wraps the sd package and a lot of daemon management boilerplate code to make if very easy to start a full featured daemon, doing graceful reload and/or zero-downtime restart/upgrades.
+
+* **metric** A fast client side buffered (if needed) metrics library with a statsd sink.
 
 ... more to come.
 
