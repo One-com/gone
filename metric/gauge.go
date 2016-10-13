@@ -9,19 +9,19 @@ import (
 // wrt. the absolute value.
 // Can be used as a client side maintained counter too.
 
-// The default gauge type using a uint64
+// GaugeUint64 is the default gauge type using a uint64
 type GaugeUint64 struct {
 	name string
 	val  uint64
 }
 
-// A gauge using an int64 - meaning it can be decremented to negaive values
+// GaugeInt64 is a gauge using an int64 - meaning it can be decremented to negaive values
 type GaugeInt64 struct {
 	name string
 	val  int64
 }
 
-// A go-metric compatible float64 gauge which stores its value as a uint64
+// GaugeFloat64 is a float64 gauge which stores its value as a uint64
 // to implement Flush() fast
 type GaugeFloat64 struct {
 	name string
@@ -59,17 +59,17 @@ func (g *GaugeUint64) Name() string {
 	return g.name
 }
 
-// Mtype to implement Meter interface
+// MeterType to implement Meter interface
 func (g *GaugeUint64) MeterType() int {
 	return MeterGauge
 }
 
-// Update the gauge value
+// Set will update the gauge value
 func (g *GaugeUint64) Set(val uint64) {
 	atomic.StoreUint64(&g.val, val)
 }
 
-// Get the gauge value
+// Value returns the gauge value
 func (g *GaugeUint64) Value() uint64 {
 	return atomic.LoadUint64(&g.val)
 }

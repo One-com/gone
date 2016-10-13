@@ -13,6 +13,10 @@ type Sink interface {
 	Flush()
 }
 
+// SinkFactory is the interface of objects returned to the user by sink implementations.
+// It serves to be able for gone/metric to create new Sink objects which can be called.
+// concurrently.
+// This allows a sink implementation to avoid using several layers of locks.
 type SinkFactory interface {
 	Sink() Sink
 }

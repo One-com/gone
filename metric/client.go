@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// Client is the main object the applications holds to do metrics.
+// It can be used directly for ad-hoc events, or be used to create persistent
+// gauge/conter/timer/... objects optimised for bulk metric generation.
 type Client struct {
 
 	// Wait for all flushers to empty before exiting Stop()
@@ -32,7 +35,7 @@ func init() {
 
 // NewClient returns you a client handle directly if you do not want to use the
 // global default client.
-// Create a new metric client with a factory object for the sink.
+// Creates a new metric client with a factory object for the sink.
 // If sink == nil, the client will not emit metrics until a Sink is set.
 func NewClient(sinkf SinkFactory, opts ...MOption) (client *Client) {
 
@@ -51,13 +54,13 @@ func NewClient(sinkf SinkFactory, opts ...MOption) (client *Client) {
 	return
 }
 
-// Set options on the default metric client
+// SetDefaultOptions sets options on the default metric client
 func SetDefaultOptions(opts ...MOption) {
 	c := defaultClient
 	c.SetOptions(opts...)
 }
 
-// Set options on a client - like the flush interval for metrics which
+// SetOptions sets options on a client - like the flush interval for metrics which
 // haven't them selves a fixed flush interval
 func (c *Client) SetOptions(opts ...MOption) {
 	conf := make(map[string]interface{})
@@ -74,12 +77,14 @@ func (c *Client) SetOptions(opts ...MOption) {
 	c.fmu.Unlock()
 }
 
+// SetDefaultSink sets the sink for the default metics client
 func SetDefaultSink(sinkf SinkFactory) {
 	c := defaultClient
 	c.SetSink(sinkf)
 }
 
-// The the Sink factory of the client
+// SetSink sets the Sink factory of the client.
+// You'll need to set a sink before any metrics will be emitted.
 func (c *Client) SetSink(sinkf SinkFactory) {
 	c.fmu.Lock()
 
@@ -119,7 +124,7 @@ func (c *Client) Start() {
 	c.running = true
 }
 
-// Stops the global default metrics client
+// Stop the global default metrics client
 func Stop() {
 	defaultClient.Stop()
 }
@@ -182,19 +187,27 @@ func (c *Client) Flush() {
 	c.defaultFlusher.FlushSink()
 }
 
+// Counter creates an ad-hoc counter metric event.
+// If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) Counter(name string, val int, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterCounter, name, Numeric64{Type: Int64, value: uint64(val)}, flush)
 }
 
+// Gauge creates an ad-hoc gauge metric event.
+// If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) Gauge(name string, val uint64, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterGauge, name, Numeric64{Type: Uint64, value: uint64(val)}, flush)
 }
 
+// Timer creates an ad-hoc timer metric event.
+// If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) Timer(name string, d time.Duration, flush bool) {
 	val := d.Nanoseconds()/int64(1000000)
 	c.defaultFlusher.RecordNumeric64(MeterTimer, name, Numeric64{Type: Uint64, value: uint64(val)}, flush)
 }
 
+// Sample creates an ad-hoc histogram metric event.
+// If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) Sample(name string, val int64, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterHistogram, name, Numeric64{Type: Int64, value: uint64(val)}, flush)
 }

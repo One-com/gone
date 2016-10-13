@@ -25,6 +25,8 @@ type statsdSink struct {
 	buf []byte
 }
 
+// Buffer sets the package size with which writes to the underlying io.Writer (often an UDPConn)
+// is done.
 func Buffer(size int) Option {
 	return Option(func(s *statsdSinkFactory) error {
 		s.max = size
@@ -32,6 +34,7 @@ func Buffer(size int) Option {
 	})
 }
 
+// Prefix is prepended with "prefix." to all metric names
 func Prefix(pfx string) Option {
 	return Option(func(s *statsdSinkFactory) error {
 		s.prefix = pfx + "."
@@ -39,6 +42,7 @@ func Prefix(pfx string) Option {
 	})
 }
 
+// Peer is the address of the statsd UDP server
 func Peer(addr string) Option {
 	return Option(func(s *statsdSinkFactory) error {
 		conn, err := net.DialTimeout("udp", addr, time.Second)
@@ -49,7 +53,8 @@ func Peer(addr string) Option {
 		return nil
 	})
 }
-	
+
+// Output sets an general io.Writer as output instead of a UDPConn.
 func Output(w io.Writer) Option {
 	return Option(func(s *statsdSinkFactory) error {
 		s.out = w
@@ -57,7 +62,7 @@ func Output(w io.Writer) Option {
 	})
 }
 
-// A Sink sending data to a UDP statsd server
+// New creasted a SinkFactory which is used to create Sinks sending data to a UDP statsd server
 // Provide a UDP address, a prefix and a maximum UDP datagram size.
 // 1432 should be a safe size for most nets.
 func New(opts ...Option) (sink *statsdSinkFactory, err error) {
@@ -73,6 +78,7 @@ func New(opts ...Option) (sink *statsdSinkFactory, err error) {
 	return
 }
 
+// Sink implmenets the SinkFactory interface.
 func (s *statsdSinkFactory) Sink() (metric.Sink) {
 	newsink := &statsdSink{out: s.out, max: s.max, prefix: s.prefix}
 	newsink.buf = make([]byte,0,512)
