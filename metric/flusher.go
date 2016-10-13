@@ -1,8 +1,8 @@
 package metric
 
 import (
-	"time"
 	"sync"
+	"time"
 )
 
 // A flusher is either run with a fixed flushinterval with a go-routine which
@@ -21,17 +21,17 @@ type Flusher struct {
 
 type flusher struct {
 	// Tell the flusher to exit - or (for defaultFlusher) restart
-	stopChan     chan struct{}
+	stopChan chan struct{}
 	// Kick the flusher to reconsider interval (used for defaultFlusher)
-	kickChan     chan struct{}
+	kickChan chan struct{}
 
 	interval time.Duration
 
-	mu sync.Mutex
+	mu     sync.Mutex
 	meters []Meter
 
 	// only set once by the run/rundyn method to fix how the flusher is used.
-	ftype int   
+	ftype int
 
 	sink Sink
 }
@@ -91,7 +91,7 @@ RUNNING: // two cases - either with a flush or not
 		if interval == 0 {
 			// sit here waiting doing nothing
 			select {
-			case <- f.stopChan:
+			case <-f.stopChan:
 				break RUNNING
 			case <-f.kickChan:
 			}
@@ -100,13 +100,13 @@ RUNNING: // two cases - either with a flush or not
 		LOOP:
 			for {
 				select {
-				case <- f.stopChan:
+				case <-f.stopChan:
 					ticker.Stop()
 					break RUNNING
 				case <-f.kickChan:
 					ticker.Stop()
 					break LOOP // to test to make a new ticker
-				case <- ticker.C:
+				case <-ticker.C:
 					f.Flush()
 				}
 			}
@@ -132,15 +132,15 @@ func (f *flusher) run(done *sync.WaitGroup) {
 		// don't start a meaningless flusher
 		return
 	}
-	
+
 	ticker := time.NewTicker(f.interval)
 LOOP:
 	for {
 		select {
-		case <- f.stopChan:
+		case <-f.stopChan:
 			ticker.Stop()
 			break LOOP
-		case <- ticker.C:
+		case <-ticker.C:
 			f.Flush()
 		}
 	}
@@ -170,12 +170,10 @@ func (f *flusher) register(m Meter) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.meters = append(f.meters, m)
-	if a,ok := m.(AutoFlusher); ok {
+	if a, ok := m.(AutoFlusher); ok {
 		a.SetFlusher(Flusher{f})
 	}
 }
-
-
 
 func (f *flusher) Record(mtype int, name string, value interface{}, flush bool) {
 	f.mu.Lock()
@@ -195,10 +193,8 @@ func (f *flusher) RecordNumeric64(mtype int, name string, value Numeric64, flush
 	f.mu.Unlock()
 }
 
-
 func (f *flusher) FlushSink() {
 	f.mu.Lock()
 	f.sink.Flush()
 	f.mu.Unlock()
 }
-

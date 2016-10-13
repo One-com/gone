@@ -7,11 +7,11 @@ package metric
 // Timer: A series of time.Duration events analyzed on the server
 // Set: Discrete strings added to a set maintained on the server
 const (
-	MeterGauge = iota  // A client side maintained value
-	MeterCounter       // A server side maintained value
-	MeterHistogram     // A general distribution of measurements events.
-	MeterTimer         // ... when those measurements are milliseconds
-	MeterSet           // free form string events
+	MeterGauge     = iota // A client side maintained value
+	MeterCounter          // A server side maintained value
+	MeterHistogram        // A general distribution of measurements events.
+	MeterTimer            // ... when those measurements are milliseconds
+	MeterSet              // free form string events
 )
 
 // A Meter measures stuff and can be registered with a client to
@@ -27,4 +27,3 @@ type Meter interface {
 type AutoFlusher interface {
 	SetFlusher(Flusher)
 }
-

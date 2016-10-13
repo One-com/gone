@@ -14,7 +14,7 @@ type Client struct {
 	done *sync.WaitGroup
 
 	// protects the flusher map
-	fmu sync.Mutex
+	fmu      sync.Mutex
 	flushers map[time.Duration]*flusher
 
 	// The flusher handling meters which have been given no specific
@@ -40,7 +40,7 @@ func init() {
 func NewClient(sinkf SinkFactory, opts ...MOption) (client *Client) {
 
 	client = &Client{}
-	client.done =  new(sync.WaitGroup)
+	client.done = new(sync.WaitGroup)
 	client.flushers = make(map[time.Duration]*flusher)
 
 	client.defaultFlusher = newFlusher(0)
@@ -69,8 +69,8 @@ func (c *Client) SetOptions(opts ...MOption) {
 	}
 
 	c.fmu.Lock()
-	if f,ok := conf["flushInterval"]; ok {
-		if d, ok := f.(time.Duration) ; ok {
+	if f, ok := conf["flushInterval"]; ok {
+		if d, ok := f.(time.Duration); ok {
 			c.defaultFlusher.setInterval(d)
 		}
 	}
@@ -90,7 +90,7 @@ func (c *Client) SetSink(sinkf SinkFactory) {
 
 	c.sinkf = sinkf
 	c.defaultFlusher.setSink(sinkf)
-	for _,f := range c.flushers {
+	for _, f := range c.flushers {
 		if sinkf == nil {
 			f.setSink(&nilSinkFactory{})
 		} else {
@@ -116,7 +116,7 @@ func (c *Client) Start() {
 
 	go c.defaultFlusher.rundyn()
 
-	for _,f := range c.flushers {
+	for _, f := range c.flushers {
 		c.done.Add(1)
 		f.run(c.done)
 	}
@@ -141,7 +141,7 @@ func (c *Client) Stop() {
 
 	c.defaultFlusher.stop()
 
-	for _,f := range c.flushers {
+	for _, f := range c.flushers {
 		f.stop()
 	}
 	c.done.Wait()
@@ -159,7 +159,7 @@ func (c *Client) register(m Meter, opts ...MOption) {
 		o(conf)
 	}
 
-	if fi,ok := conf["flushInterval"]; ok {
+	if fi, ok := conf["flushInterval"]; ok {
 		flush = fi.(time.Duration)
 		if f, ok = c.flushers[flush]; !ok {
 			f = newFlusher(flush)
@@ -202,7 +202,7 @@ func (c *Client) Gauge(name string, val uint64, flush bool) {
 // Timer creates an ad-hoc timer metric event.
 // If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) Timer(name string, d time.Duration, flush bool) {
-	val := d.Nanoseconds()/int64(1000000)
+	val := d.Nanoseconds() / int64(1000000)
 	c.defaultFlusher.RecordNumeric64(MeterTimer, name, Numeric64{Type: Uint64, value: uint64(val)}, flush)
 }
 

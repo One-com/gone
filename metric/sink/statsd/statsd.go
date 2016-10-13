@@ -1,28 +1,28 @@
 package statsd
 
 import (
+	"fmt"
+	"github.com/One-com/gone/metric"
+	"io"
 	"net"
+	"os"
 	"strconv"
 	"time"
-	"fmt"
-	"io"
-	"os"
-	"github.com/One-com/gone/metric"
 )
 
 type Option func(*statsdSinkFactory) error
 
 type statsdSinkFactory struct {
-	out io.Writer
+	out    io.Writer
 	max    int
 	prefix string
 }
 
 type statsdSink struct {
-	out io.Writer
+	out    io.Writer
 	max    int
 	prefix string
-	buf []byte
+	buf    []byte
 }
 
 // Buffer sets the package size with which writes to the underlying io.Writer (often an UDPConn)
@@ -68,7 +68,7 @@ func Output(w io.Writer) Option {
 func New(opts ...Option) (sink *statsdSinkFactory, err error) {
 
 	sink = &statsdSinkFactory{out: os.Stdout}
-	
+
 	for _, o := range opts {
 		err = o(sink)
 		if err != nil {
@@ -79,42 +79,42 @@ func New(opts ...Option) (sink *statsdSinkFactory, err error) {
 }
 
 // Sink implmenets the SinkFactory interface.
-func (s *statsdSinkFactory) Sink() (metric.Sink) {
+func (s *statsdSinkFactory) Sink() metric.Sink {
 	newsink := &statsdSink{out: s.out, max: s.max, prefix: s.prefix}
-	newsink.buf = make([]byte,0,512)
+	newsink.buf = make([]byte, 0, 512)
 	return newsink
 }
 
 func (s *statsdSink) Record(mtype int, name string, value interface{}) {
 	curbuflen := len(s.buf)
-	s.buf = append(s.buf,s.prefix...)
-	s.buf = append(s.buf,name...)
-	s.buf = append(s.buf,':')
+	s.buf = append(s.buf, s.prefix...)
+	s.buf = append(s.buf, name...)
+	s.buf = append(s.buf, ':')
 	switch v := value.(type) {
 	case string:
-		s.buf = append(s.buf,v...)
+		s.buf = append(s.buf, v...)
 	case fmt.Stringer:
-		s.buf = append(s.buf,v.String()...)
+		s.buf = append(s.buf, v.String()...)
 	default:
 		panic("Not stringable")
 	}
-	s.buf = append(s.buf,'|')
+	s.buf = append(s.buf, '|')
 	s.appendType(mtype)
 	// sampe rate not supported
-	s.buf = append(s.buf,'\n')
+	s.buf = append(s.buf, '\n')
 	s.flushIfBufferFull(curbuflen)
 }
 
 func (s *statsdSink) RecordNumeric64(mtype int, name string, value metric.Numeric64) {
 	curbuflen := len(s.buf)
-	s.buf = append(s.buf,s.prefix...)
-	s.buf = append(s.buf,name...)
-	s.buf = append(s.buf,':')
+	s.buf = append(s.buf, s.prefix...)
+	s.buf = append(s.buf, name...)
+	s.buf = append(s.buf, ':')
 	s.appendNumeric64(value)
-	s.buf = append(s.buf,'|')
+	s.buf = append(s.buf, '|')
 	s.appendType(mtype)
 	// sample rate not supported
-	s.buf = append(s.buf,'\n')
+	s.buf = append(s.buf, '\n')
 	s.flushIfBufferFull(curbuflen)
 }
 
@@ -148,13 +148,13 @@ func (s *statsdSink) flush(n int) {
 func (s *statsdSink) appendType(t int) {
 	switch t {
 	case metric.MeterGauge:
-		s.buf = append(s.buf,'g')
+		s.buf = append(s.buf, 'g')
 	case metric.MeterCounter:
-		s.buf = append(s.buf,'c')
-	case metric.MeterTimer, metric.MeterHistogram:  // until we are sure the statsd server supports otherwise
-		s.buf = append(s.buf,"ms"...)
+		s.buf = append(s.buf, 'c')
+	case metric.MeterTimer, metric.MeterHistogram: // until we are sure the statsd server supports otherwise
+		s.buf = append(s.buf, "ms"...)
 	case metric.MeterSet:
-		s.buf = append(s.buf,'s')
+		s.buf = append(s.buf, 's')
 
 	}
 }

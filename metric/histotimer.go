@@ -36,7 +36,7 @@ func NewTimer(name string, opts ...MOption) *Timer {
 }
 
 func (c *Client) NewTimer(name string, opts ...MOption) *Timer {
- 	dequeuef := func(f Sink, val uint64) {
+	dequeuef := func(f Sink, val uint64) {
 		n := Numeric64{Type: Uint64, value: val}
 		f.RecordNumeric64(MeterTimer, name, n)
 	}
@@ -48,5 +48,5 @@ func (c *Client) NewTimer(name string, opts ...MOption) *Timer {
 // Sample records a new duration event.
 func (t *Timer) Sample(d time.Duration) {
 	e := (*eventStream)(t)
-	e.Enqueue(uint64(d.Nanoseconds()/int64(1000000)))
+	e.Enqueue(uint64(d.Nanoseconds() / int64(1000000)))
 }

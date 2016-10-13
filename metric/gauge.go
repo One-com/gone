@@ -1,8 +1,8 @@
 package metric
 
 import (
-	"sync/atomic"
 	"math"
+	"sync/atomic"
 )
 
 // A client maintained gauge which is only sampled regulary without information loss
@@ -38,6 +38,7 @@ func NewGauge(name string, opts ...MOption) *GaugeUint64 {
 func (c *Client) NewGauge(name string, opts ...MOption) *GaugeUint64 {
 	return c.NewGaugeUint64(name, opts...)
 }
+
 /*==================================================================*/
 
 // NewGaugeUint64 returns a standard gauge.
@@ -50,7 +51,7 @@ func (c *Client) NewGaugeUint64(name string, opts ...MOption) *GaugeUint64 {
 // Flush to implement Meter interface
 func (g *GaugeUint64) Flush(s Sink) {
 	val := atomic.LoadUint64(&g.val)
-	n := Numeric64{Type:Uint64, value: val}
+	n := Numeric64{Type: Uint64, value: val}
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }
 
@@ -95,7 +96,7 @@ func (c *Client) NewGaugeInt64(name string, opts ...MOption) *GaugeInt64 {
 
 func (g *GaugeInt64) Flush(s Sink) {
 	val := atomic.LoadInt64(&g.val)
-	n := Numeric64{Type:Int64, value: uint64(val)}
+	n := Numeric64{Type: Int64, value: uint64(val)}
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }
 
@@ -154,6 +155,6 @@ func (g *GaugeFloat64) Value() float64 {
 
 func (g *GaugeFloat64) Flush(s Sink) {
 	val := atomic.LoadUint64(&g.val)
-	n := Numeric64{Type:Float64, value: val}
+	n := Numeric64{Type: Float64, value: val}
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }

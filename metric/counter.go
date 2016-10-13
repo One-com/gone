@@ -27,9 +27,9 @@ func (c *Client) NewCounter(name string, opts ...MOption) *Counter {
 }
 
 func (c *Counter) Flush(s Sink) {
-	val := atomic.SwapInt64(&c.val,0)
+	val := atomic.SwapInt64(&c.val, 0)
 	if val != 0 {
-		n := Numeric64{Type:Int64, value: uint64(val)}
+		n := Numeric64{Type: Int64, value: uint64(val)}
 		s.RecordNumeric64(MeterCounter, c.name, n)
 	}
 }

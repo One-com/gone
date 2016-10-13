@@ -9,7 +9,7 @@ import (
 
 func ExampleNewClient() {
 
-	var _flushPeriod = 4*time.Second
+	var _flushPeriod = 4 * time.Second
 
 	sink, err := statsd.New(
 		statsd.Buffer(512),
@@ -21,24 +21,23 @@ func ExampleNewClient() {
 
 	flushPeriod := metric.FlushInterval(_flushPeriod)
 
-	c := metric.NewClient(sink,flushPeriod)
-	
-	gauge   := c.NewGauge("gauge",flushPeriod)
-	timer   := c.NewTimer("timer")
-	histo   := c.NewHistogram("histo",flushPeriod)
-	counter := c.NewCounter("counter",flushPeriod)
+	c := metric.NewClient(sink, flushPeriod)
+
+	gauge := c.NewGauge("gauge", flushPeriod)
+	timer := c.NewTimer("timer")
+	histo := c.NewHistogram("histo", flushPeriod)
+	counter := c.NewCounter("counter", flushPeriod)
 
 	g := 100
 	for g != 0 {
 		counter.Inc(1)
 		gauge.Set(uint64(g))
-		timer.Sample(time.Duration(g)*time.Millisecond)
+		timer.Sample(time.Duration(g) * time.Millisecond)
 		histo.Sample(int64(g))
-		
+
 		time.Sleep(time.Second)
 		g--
 	}
 	c.Stop()
-	
-}
 
+}

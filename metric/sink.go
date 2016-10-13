@@ -40,4 +40,3 @@ func (n *nilSink) Flush() {
 func (n *nilSinkFactory) Sink() Sink {
 	return &nilSink{}
 }
-

@@ -15,7 +15,7 @@ const (
 // any 64 bit numeric value. This is a performance optimation. An interface{} would
 // require additional dynamic allocation of heap objects.
 type Numeric64 struct {
-	Type int
+	Type  int
 	value uint64
 }
 
@@ -45,4 +45,3 @@ func (n Numeric64) Float64() float64 {
 		panic("Numeric64 is not an Float64")
 	}
 }
-

@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-
 type MConfig map[string]interface{}
 
 type MOption func(MConfig)
