@@ -64,7 +64,7 @@ func (f *flusher) setInterval(d time.Duration) {
 	}
 }
 
-// A go-routine wich will flush at adjustable intervals and doesn't
+// A go-routine which will flush at adjustable intervals and doesn't
 // exit if interval is zero.
 // This is used for the defaultFlusher of the Client
 func (f *flusher) rundyn() {

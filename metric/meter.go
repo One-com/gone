@@ -22,7 +22,7 @@ type Meter interface {
 	Flush(Sink) // Read the meter, by flushing all non-read values.
 }
 
-// An AutoFlusher can initiate a Flush throught the flusher at any time and needs
+// An AutoFlusher can initiate a Flush through the flusher at any time and needs
 // to know the Flusher to call FlushMeter() on it
 type AutoFlusher interface {
 	SetFlusher(Flusher)
