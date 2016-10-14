@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	stdlog "log"
 	"github.com/One-com/gone/daemon"
 	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/http/gonesrv"
@@ -11,6 +10,7 @@ import (
 	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/sd"
 	"io"
+	stdlog "log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,8 +33,8 @@ func newHTTPServer(handler http.HandlerFunc) (s srv.Server) {
 
 	// basic HTTP server
 	s1 := &http.Server{
-		Addr:    ":4321",
-		Handler: handler,
+		Addr:     ":4321",
+		Handler:  handler,
 		ErrorLog: errorlog,
 	}
 	// wrapped to get Shutdown() and graceful shutdown

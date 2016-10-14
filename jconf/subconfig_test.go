@@ -1,9 +1,9 @@
 package jconf
 
 import (
-	"log"
 	"bytes"
 	"encoding/json"
+	"log"
 	"os"
 )
 
@@ -43,7 +43,7 @@ func ExampleSubConfig() {
 
 	// Let our submodule parse its own config
 	initSubModule(cfg.S)
-	
+
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -55,7 +55,7 @@ func ExampleSubConfig() {
 		log.Fatalf("Indent error: %s", err)
 	}
 	out.WriteTo(os.Stdout)
-	
+
 	// Output:
 	// {
 	//     "A": "app",
