@@ -103,12 +103,18 @@ func (srv *Server) Serve(listener net.Listener) error {
 
 	// Track connection state
 	add := make(chan net.Conn)
+	idle := make(chan net.Conn)
+	active := make(chan net.Conn)
 	remove := make(chan net.Conn)
 
 	srv.Server.ConnState = func(conn net.Conn, state http.ConnState) {
 		switch state {
 		case http.StateNew:
 			add <- conn
+		case http.StateIdle:
+			idle <- conn
+		case http.StateActive:
+			active <- conn
 		case http.StateClosed, http.StateHijacked:
 			remove <- conn
 		}
@@ -131,7 +137,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 	// To tell the shutdown manager it's actions have had effect here.
 	exited := make(chan struct{})
 
-	go srv.manageConnections(add, remove, stop, kill)
+	go srv.manageConnections(add, idle, active, remove, stop, kill)
 
 	// Listen for shutdown events and manage the shutdown procedure
 	go srv.handleShutdown(listener, stop, kill, exited)
@@ -273,16 +279,22 @@ func (srv *Server) handleShutdown(listener net.Listener, stop chan chan int, kil
 // stop makes the manager exit once connections have dried out them selves (since a closed listener
 // will no longer generate add events)
 // kill kills off the remaning connections.
-func (srv *Server) manageConnections(add, remove chan net.Conn, stop chan chan int, kill chan struct{}) {
+func (srv *Server) manageConnections(add, idle, active, remove chan net.Conn, stop chan chan int, kill chan struct{}) {
 	var done chan int
 	var killed int
 	connections := make(map[net.Conn]struct{}, 10)
+	idleConnections := make(map[net.Conn]struct{}, 10)
 	for {
 		select {
 		case conn := <-add:
 			connections[conn] = struct{}{} // remember this conn is alive
+		case conn := <-idle:
+			idleConnections[conn] = struct{}{}
+		case conn := <-active:
+			delete(idleConnections, conn)
 		case conn := <-remove:
 			delete(connections, conn) // this conn dies, forget it
+			delete(idleConnections, conn)
 			// if done is set connections will slowly terminate one
 			// after one by them selves assuming the listener has been closed,
 			// so Accept() will no longer generate events on the add channel.
@@ -292,13 +304,26 @@ func (srv *Server) manageConnections(add, remove chan net.Conn, stop chan chan i
 				return
 			}
 		case done = <-stop: // take the done channel we get
-			if len(connections) == 0 { // if we were idle, we just return
+			if len(connections) == 0 && len(idleConnections) == 0  {
+				// if we were idle, we just return
 				done <- killed
 				return
 			}
+			for k := range idleConnections {
+				if err := k.Close(); err != nil {
+					if srv.ErrorLog != nil {
+						srv.ErrorLog.Printf("Error closing idle connection: %s", err)
+					}
+				}
+			}
 		case <-kill: // don't care for the stop reply any more. Now we're killing.
 			for k := range connections {
-				_ = k.Close() // nothing to do here if it errors
+				err := k.Close()
+				if err != nil {
+					if srv.ErrorLog != nil {
+						srv.ErrorLog.Printf("Error closing stale connection: %s", err)
+					}
+				}
 				killed++
 			}
 			// We have to let the conns remove them selves from here.
