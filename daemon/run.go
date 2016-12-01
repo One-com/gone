@@ -164,7 +164,7 @@ func Run(opts ...RunOption) (err error) {
 				srvmu.Lock()
 				configErr = err
 				srvmu.Unlock()
-				_master.Log(srv.LvlCRIT, fmt.Sprintf("Config load err: %s", configErr.Error()))
+				_master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
 			}
 			first_mu.Lock()
 			if first_config_load_done != nil {
