@@ -11,7 +11,10 @@ func ExampleNewClient() {
 
 	var _flushPeriod = 4 * time.Second
 
-	sink, err := statsd.New(
+	var sink metric.SinkFactory
+	var err error
+
+	sink, err = statsd.New(
 		statsd.Buffer(512),
 		statsd.Peer("127.0.0.2:8125"),
 		statsd.Prefix("prefix"))

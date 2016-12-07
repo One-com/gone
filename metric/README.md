@@ -53,6 +53,8 @@ Then both metric events will be sent to the sink and the latter will also ask th
 ## Example
 
 ```go
+package main
+
 import (
 	"github.com/One-com/gone/metric"
 	"github.com/One-com/gone/metric/sink/statsd"
@@ -60,9 +62,14 @@ import (
 	"time"
 )
 
-	var flushPeriod = := metric.FlushInterval(4*time.Second)
+func main() {
 
-	sink, err := statsd.New(
+	flushPeriod  := metric.FlushInterval(4*time.Second)
+
+	var sink metric.SinkFactory
+	var err error
+
+	sink, err = statsd.New(
 		statsd.Buffer(512),
 		statsd.Peer("statsdhost:8125"),
 		statsd.Prefix("prefix"))
@@ -71,7 +78,7 @@ import (
 	}
 
 	c := metric.NewClient(sink,flushPeriod)
-	
+
 	gauge   := c.NewGauge("gauge",flushPeriod)
 	timer   := c.NewTimer("timer")
 	histo   := c.NewHistogram("histo",flushPeriod)
@@ -83,11 +90,11 @@ import (
 		gauge.Set(uint64(g))
 		timer.Sample(time.Duration(g)*time.Millisecond)
 		histo.Sample(int64(g))
-		
+
 		time.Sleep(time.Second)
 		g--
 	}
-	c.Stop()	
+	c.Stop()
 }
 
 
