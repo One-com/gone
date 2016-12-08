@@ -54,14 +54,17 @@ func loadConfig(cfg string) daemon.ConfigureFunc {
 	var revision int
 	cf := daemon.ConfigureFunc(
 		func() (s []srv.Server, c []daemon.CleanupFunc, err error) {
-			log.Println("Loading config")
+			revision++
+			log.Printf("Loading config. rev: %d", revision)
 
 			s = make([]srv.Server, 1)
 			c = make([]daemon.CleanupFunc, 1)
-			revision++
+
 			s[0] = newHTTPServer(http.HandlerFunc(myHandlerFunc(cfg, revision)))
+
+			localRevision := revision
 			c[0] = func() error {
-				log.Println("Ran cleanup")
+				log.Printf("Ran cleanup, rev: %d", localRevision)
 				return nil
 			}
 			return
