@@ -28,7 +28,6 @@ type GaugeFloat64 struct {
 	val  uint64
 }
 
-/*==================================================================*/
 // NewGauge is alias for NewGaugeUint64
 func NewGauge(name string, opts ...MOption) *GaugeUint64 {
 	return defaultClient.NewGauge(name, opts...)
@@ -38,8 +37,6 @@ func NewGauge(name string, opts ...MOption) *GaugeUint64 {
 func (c *Client) NewGauge(name string, opts ...MOption) *GaugeUint64 {
 	return c.NewGaugeUint64(name, opts...)
 }
-
-/*==================================================================*/
 
 // NewGaugeUint64 returns a standard gauge.
 func (c *Client) NewGaugeUint64(name string, opts ...MOption) *GaugeUint64 {
@@ -85,8 +82,6 @@ func (g *GaugeUint64) Dec(i int64) {
 	atomic.AddUint64(&g.val, ^uint64(i-1))
 }
 
-/*==================================================================*/
-
 // An Int64 Gauge. Can be used as a go-metric client side gauge or counter
 func (c *Client) NewGaugeInt64(name string, opts ...MOption) *GaugeInt64 {
 	g := &GaugeInt64{name: name}
@@ -126,7 +121,6 @@ func (g *GaugeInt64) Inc(i int64) {
 	atomic.AddInt64(&g.val, i)
 }
 
-/*==================================================================*/
 // An Float64 Gauge.
 func (c *Client) NewGaugeFloat64(name string, opts ...MOption) *GaugeFloat64 {
 	g := &GaugeFloat64{name: name}
