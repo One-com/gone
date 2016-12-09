@@ -17,5 +17,7 @@ This is not strictly a "framework". The individual packages do not really depend
 
 * **jconf** Small utility to make parsing of modular JSON config easier, while still being able to serialize the main config object to JSON and see the full config.
 
+* **signals** Run a signal handler and call functions based on a signal->function map.
+
 ... more to come.
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/One-com/gone/daemon"
 	"github.com/One-com/gone/daemon/srv"
+	"github.com/One-com/gone/signals"
 	"github.com/One-com/gone/http/gonesrv"
 	"github.com/One-com/gone/http/graceful"
 	"github.com/One-com/gone/log"
@@ -13,9 +14,9 @@ import (
 	stdlog "log"
 	"net/http"
 	"os"
-	"os/signal"
 	"syscall"
 	"time"
+
 )
 
 //----------------- The actual server ----------------------
@@ -74,22 +75,6 @@ func loadConfig(cfg string) daemon.ConfigureFunc {
 
 //----------------- Signal handling ----------------------
 
-type signalAction func()
-
-var (
-	sigch         chan os.Signal
-	signalActions map[os.Signal]signalAction
-)
-
-func signalHandler(sigch chan os.Signal, actions map[os.Signal]signalAction) {
-	for {
-		select {
-		case s := <-sigch:
-			f := actions[s]
-			f()
-		}
-	}
-}
 
 func onSignalExit() {
 	log.Println("Signal Exit")
@@ -130,29 +115,25 @@ func serverLogFunc(level int, message string) {
 func init() {
 
 	/* Setup signalling */
-	sigch = make(chan os.Signal)
-	signalActions = make(map[os.Signal]signalAction)
 
-	signalActions[syscall.SIGINT] = onSignalExit
-	signalActions[syscall.SIGTERM] = onSignalExitGraceful
-	signalActions[syscall.SIGHUP] = onSignalReload
-	signalActions[syscall.SIGUSR2] = onSignalRespawn
-	signalActions[syscall.SIGTTIN] = onSignalIncLogLevel
-	signalActions[syscall.SIGTTOU] = onSignalDecLogLevel
-
-	for sig := range signalActions {
-		signal.Notify(sigch, sig)
+	handledSignals := signals.Mappings{
+		syscall.SIGINT  : onSignalExit,
+		syscall.SIGTERM : onSignalExitGraceful,
+		syscall.SIGHUP  : onSignalReload,
+		syscall.SIGUSR2 : onSignalRespawn,
+		syscall.SIGTTIN : onSignalIncLogLevel,
+		syscall.SIGTTOU : onSignalDecLogLevel,
 	}
 
 	log.SetLevel(syslog.LOG_DEBUG)
 	daemon.SetLogger(serverLogFunc)
+
+	signals.RunSignalHandler(handledSignals)
 }
 
 //---------------------------------------------------------------------------
 
 func main() {
-
-	go signalHandler(sigch, signalActions)
 
 	configureFunc := loadConfig("myconf")
 
