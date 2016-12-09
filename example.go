@@ -123,6 +123,10 @@ func onSignalDecLogLevel() {
 	log.ALERT(fmt.Sprintf("Log level: %d\n", log.Level()))
 }
 
+func serverLogFunc(level int, message string) {
+	log.Log(syslog.Priority(level), message)
+}
+
 func init() {
 
 	/* Setup signalling */
@@ -139,6 +143,9 @@ func init() {
 	for sig := range signalActions {
 		signal.Notify(sigch, sig)
 	}
+
+	log.SetLevel(syslog.LOG_DEBUG)
+	daemon.SetLogger(serverLogFunc)
 }
 
 //---------------------------------------------------------------------------
