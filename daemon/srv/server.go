@@ -182,12 +182,9 @@ func (m *MultiServer) start() (err error) {
 	// Make the sd state close the rest
 	sd.Cleanup()
 
-	// take an initial token to avoid falling through Wait()
-	// before any servers are started
-	m.exited.Add(1)
-
 	for _, s := range m.servers {
 		if m != nil {
+			m.exited.Add(1) // Undone when the Server go-routine exits
 			m.startServer(s) // does not block
 		}
 	}
@@ -207,16 +204,10 @@ func (m *MultiServer) stop() {
 			s.Shutdown()
 		}
 	}
-
-	// release our initial token allowing the Wait() procedure
-	// when the last protocol server exits
-	m.exited.Done()
 }
 
 // Launch a specific server - does not block
 func (m *MultiServer) startServer(s Server) {
-
-	m.exited.Add(1) // Undone when the Server go-routine exits
 
 	done := m.done
 	exited := make(chan struct{})

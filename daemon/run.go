@@ -31,26 +31,26 @@ var (
 	reload chan struct{}
 )
 
-var _master *srv.MultiServer
+var master *srv.MultiServer
 
 func init() {
 	// creat the channel to propate reload events to the reload manager
-	reload = make(chan struct{}, 1) // async
+	reload = make(chan struct{}, 1) // 1 to take pending into account
 
 	// create the channel which tells the master reload-loop to exit
-	stopch = make(chan bool, 1) // async
+	stopch = make(chan bool, 1) // 1 to take pending into account
 
-	_master = &srv.MultiServer{}
+	master = &srv.MultiServer{}
 }
 
 // SetLogger sets a custom log function.
 func SetLogger(f srv.LoggerFunc) {
-	_master.SetLogger(f)
+	master.SetLogger(f)
 }
 
 // Log calls the custom log function set - if any
 func Log(level int, msg string) {
-	_master.Log(level, msg)
+	master.Log(level, msg)
 }
 
 type runcfg struct {
@@ -159,12 +159,12 @@ func Run(opts ...RunOption) (err error) {
 				cleanups = c
 				revision++
 				srvmu.Unlock()
-				_master.Shutdown() // noop if not started
+				master.Shutdown() // noop if not started
 			} else {
 				srvmu.Lock()
 				configErr = err
 				srvmu.Unlock()
-				_master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
+				master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
 			}
 			first_mu.Lock()
 			if first_config_load_done != nil {
@@ -202,7 +202,7 @@ MainLoop:
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
-		if done, err = _master.Serve(running_servers, readyCallback); err != nil {
+		if done, err = master.Serve(running_servers, readyCallback); err != nil {
 			return
 		}
 
@@ -218,10 +218,10 @@ MainLoop:
 			}
 		}
 	}
-	_master.Log(srv.LvlNOTICE, "Exit mainloop")
+	master.Log(srv.LvlNOTICE, "Exit mainloop")
 	if graceful_exit {
 		srvmu.Lock()
-		_master.Log(srv.LvlNOTICE, "Waiting for graceful shutdown")
+		master.Log(srv.LvlNOTICE, "Waiting for graceful shutdown")
 		recordShutdown(revision, cleanups, done)
 		srvmu.Unlock()
 	}
@@ -233,10 +233,10 @@ func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}) {
 	for _, f := range cleanups {
 		e := f()
 		if e != nil {
-			_master.Log(srv.LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
+			master.Log(srv.LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
 		}
 	}
-	_master.Log(srv.LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
+	master.Log(srv.LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
 }
 
 // Reload tells Run() to instatiate new servers and continue serving with them.
@@ -245,7 +245,7 @@ func Reload() {
 	select {
 	case reload <- struct{}{}:
 	default:
-		_master.Log(srv.LvlNOTICE, "Reload already pending")
+		master.Log(srv.LvlNOTICE, "Reload already pending")
 	}
 }
 
@@ -253,9 +253,9 @@ func Reload() {
 func Exit(graceful bool) {
 	select {
 	case stopch <- graceful: // buffered by 1 exit operation at a time
-		_master.Shutdown()
+		master.Shutdown()
 	default:
-		_master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
+		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
 	}
 }
 
