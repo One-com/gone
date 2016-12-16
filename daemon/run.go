@@ -143,34 +143,47 @@ func Run(opts ...RunOption) (err error) {
 		return err
 	}
 
+	var exit          bool
+	var graceful_exit bool
+	var done chan struct{}
+
 	var first_mu sync.Mutex
 	first_config_load_done := make(chan struct{})
 
-	// reload handler
+	// Event handler
+	// gone/signals serialized the signals, but since we don't know how they are wired up and
+	// becomes events to the daemon MainLoop we need to serialize any event affecting
+	// shutdown/restart here again to avoid Exit events arriving after a reload is in effect,
+	// but before the new Servers are running. That would loose the exit signal.
 	go func() {
 		for {
-			// Wait for reload signal
-			<-reload
-			s, c, err := cfg.instantiate()
-			if err == nil {
-				// Replace the server to run with a new slice.
-				srvmu.Lock()
-				servers = s
-				cleanups = c
-				revision++
-				srvmu.Unlock()
+			select {
+			case graceful_exit = <-stopch:
+				exit = true
 				master.Shutdown() // noop if not started
-			} else {
-				srvmu.Lock()
-				configErr = err
-				srvmu.Unlock()
-				master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
+			// Wait for reload signal
+			case <-reload:
+				s, c, err := cfg.instantiate()
+				if err == nil {
+					// Replace the server to run with a new slice.
+					srvmu.Lock()
+					servers = s
+					cleanups = c
+					revision++
+					srvmu.Unlock()
+					master.Shutdown() // noop if not started
+				} else {
+					srvmu.Lock()
+					configErr = err
+					srvmu.Unlock()
+					master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
+				}
+				first_mu.Lock()
+				if first_config_load_done != nil {
+					close(first_config_load_done)
+				}
+				first_mu.Unlock()
 			}
-			first_mu.Lock()
-			if first_config_load_done != nil {
-				close(first_config_load_done)
-			}
-			first_mu.Unlock()
 		}
 	}()
 
@@ -180,9 +193,6 @@ func Run(opts ...RunOption) (err error) {
 	first_mu.Lock()
 	first_config_load_done = nil
 	first_mu.Unlock()
-
-	var graceful_exit bool
-	var done chan struct{}
 
 MainLoop:
 	for {
@@ -207,17 +217,17 @@ MainLoop:
 		}
 
 		/* Should we exit? */
-		select {
-		case graceful_exit = <-stopch:
+		if exit {
 			break MainLoop
-		default:
-			if cfg.syncReload {
-				recordShutdown(running_revision, running_cleanups, done)
-			} else {
-				go recordShutdown(running_revision, running_cleanups, done)
-			}
 		}
-	}
+
+		if cfg.syncReload {
+			recordShutdown(running_revision, running_cleanups, done)
+		} else {
+			go recordShutdown(running_revision, running_cleanups, done)
+		}
+	} // end MainLoop
+
 	master.Log(srv.LvlNOTICE, "Exit mainloop")
 	if graceful_exit {
 		srvmu.Lock()
@@ -253,7 +263,6 @@ func Reload() {
 func Exit(graceful bool) {
 	select {
 	case stopch <- graceful: // buffered by 1 exit operation at a time
-		master.Shutdown()
 	default:
 		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
 	}
