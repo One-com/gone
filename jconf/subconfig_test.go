@@ -18,12 +18,10 @@ type ModuleConfig struct {
 
 var confdata = `{ "a" : "app", "s" : {"b": "module"}}`
 
-func initSubModule(cfg *SubConfig) {
+func initSubModule(cfg *SubConfig) (err error) {
 	var jc *ModuleConfig
-	err := cfg.ParseInto(&jc)
-	if err != nil {
-		log.Fatal("Module Config parsing failed")
-	}
+	err = cfg.ParseInto(&jc)
+	return
 }
 
 func ExampleSubConfig() {
@@ -42,8 +40,11 @@ func ExampleSubConfig() {
 	}
 
 	// Let our submodule parse its own config
-	initSubModule(cfg.S)
-
+	err = initSubModule(cfg.S)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+	
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -81,8 +82,11 @@ func ExampleFull() {
 	}
 
 	// Let our submodule parse its own config
-	initSubModule(cfg.S)
-
+	err = initSubModule(cfg.S)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+	
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -132,4 +136,51 @@ func ExampleSyntaxError() {
 
 	// Output:
 	// Parse error: invalid character ',' after object key (byte=58 line=6):    "b",<---
+}
+
+
+var nilconfdata = `{ "a" : "app" }`
+
+func ExampleNilSubConfig() {
+
+	// main application conf object
+	cfg := &AppConfig{}
+
+	// make a JSON decoder
+	dec := json.NewDecoder(bytes.NewBuffer([]byte(nilconfdata)))
+	dec.UseNumber()
+
+	// Parse the man config
+	err := dec.Decode(&cfg)
+	if err != nil {
+		log.Fatalf("%v\n", err)
+	}
+
+	// Let our submodule parse its own config
+	err = initSubModule(cfg.S)
+	if err == nil {
+		log.Fatalf("Module Config parsing didn't detect error")
+	} else {
+		if err != ErrEmptySubConfig {
+			log.Fatalf("Module Config parsing failed: %s", err.Error())
+		}
+	}
+	
+	var out bytes.Buffer
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		log.Fatalf("Marshal error: %s", err)
+	}
+
+	err = json.Indent(&out, b, "", "    ")
+	if err != nil {
+		log.Fatalf("Indent error: %s", err)
+	}
+	out.WriteTo(os.Stdout)
+
+	// Output:
+	// {
+	//     "A": "app",
+	//     "S": null
+	// }
 }
