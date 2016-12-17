@@ -1,6 +1,10 @@
 # gone jconf
 
-Modular JSON config parsing allowing // comments
+Modular JSON config parsing allowing // comments and full serialization of the entire resulting data hierarchy to JSON.
+
+Package jconf allows you to avoid having you main configuration data structure know about every individual code modules internal
+configuration structures in order to serialize the entire configuration. Instead you can localize module config data structures
+with the code which them.
 
 ## Example
 
@@ -17,14 +21,14 @@ import (
 
 type AppConfig struct {
 	A string
-	S *jconf.SubConfig
+	S *jconf.MandatorySubConfig
 }
 
 type ModuleConfig struct {
 	B string
 }
 
-func initSubModule(cfg *jconf.SubConfig) {
+func initSubModule(cfg jconf.SubConfig) {
 	var jc *ModuleConfig
 	err := cfg.ParseInto(&jc)
 	if err != nil {
@@ -84,7 +88,7 @@ import (
 
 type AppConfig struct {
 	A string
-	S *jconf.SubConfig
+	S *jconf.MandatorySubConfig
 }
 
 type ModuleConfig struct {
@@ -93,7 +97,7 @@ type ModuleConfig struct {
 
 var confdata = `{ "a" : "app", "s" : {"b": "module"}}`
 
-func initSubModule(cfg *jconf.SubConfig) {
+func initSubModule(cfg jconf.SubConfig) {
 	var jc *ModuleConfig
 	err := cfg.ParseInto(&jc)
 	if err != nil {

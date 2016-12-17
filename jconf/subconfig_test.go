@@ -9,8 +9,14 @@ import (
 
 type AppConfig struct {
 	A string
-	S *SubConfig
+	S *MandatorySubConfig
 }
+
+type AppConfigOpt struct {
+	A string
+	S *OptionalSubConfig `json:",omitempty"`
+}
+
 
 type ModuleConfig struct {
 	B string
@@ -18,13 +24,63 @@ type ModuleConfig struct {
 
 var confdata = `{ "a" : "app", "s" : {"b": "module"}}`
 
-func initSubModule(cfg *SubConfig) (err error) {
+func initSubModule(cfg SubConfig) (err error) {
 	var jc *ModuleConfig
 	err = cfg.ParseInto(&jc)
 	return
 }
 
+func initSubModuleNoPointer(cfg SubConfig) (err error) {
+	var jc ModuleConfig
+	err = cfg.ParseInto(&jc)
+	return
+}
+
+
 func ExampleSubConfig() {
+
+	// main application conf object
+	cfg := &AppConfig{}
+
+	// make a JSON decoder
+	dec := json.NewDecoder(bytes.NewBuffer([]byte(confdata)))
+	dec.UseNumber()
+
+	// Parse the man config
+	err := dec.Decode(&cfg)
+	if err != nil {
+		log.Fatalf("%v\n", err)
+	}
+
+	// Let our submodule parse its own config
+	err = initSubModule(cfg.S)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+
+	var out bytes.Buffer
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		log.Fatalf("Marshal error: %s", err)
+	}
+
+	err = json.Indent(&out, b, "", "    ")
+	if err != nil {
+		log.Fatalf("Indent error: %s", err)
+	}
+	out.WriteTo(os.Stdout)
+
+	// Output:
+	// {
+	//     "A": "app",
+	//     "S": {
+	//         "B": "module"
+	//     }
+	// }
+}
+
+
+func ExampleSubConfigNoPointer() {
 
 	// main application conf object
 	cfg := &AppConfig{}
@@ -40,11 +96,11 @@ func ExampleSubConfig() {
 	}
 
 	// Let our submodule parse its own config
-	err = initSubModule(cfg.S)
+	err = initSubModuleNoPointer(cfg.S)
 	if err != nil {
 		log.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
-	
+
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -78,7 +134,7 @@ func ExampleFull() {
 
 	err := ParseInto(buf, &cfg)
 	if err != nil {
-		log.Fatalf("%#v\n", err)
+		log.Fatalf("%v\n", err)
 	}
 
 	// Let our submodule parse its own config
@@ -86,7 +142,7 @@ func ExampleFull() {
 	if err != nil {
 		log.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
-	
+
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -141,7 +197,7 @@ func ExampleSyntaxError() {
 
 var nilconfdata = `{ "a" : "app" }`
 
-func ExampleNilSubConfig() {
+func ExampleMandatoryNilSubConfig() {
 
 	// main application conf object
 	cfg := &AppConfig{}
@@ -165,7 +221,7 @@ func ExampleNilSubConfig() {
 			log.Fatalf("Module Config parsing failed: %s", err.Error())
 		}
 	}
-	
+
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -182,5 +238,44 @@ func ExampleNilSubConfig() {
 	// {
 	//     "A": "app",
 	//     "S": null
+	// }
+}
+
+func ExampleOptionalNilSubConfig() {
+
+	// main application conf object
+	cfg := &AppConfigOpt{}
+
+	// make a JSON decoder
+	dec := json.NewDecoder(bytes.NewBuffer([]byte(nilconfdata)))
+	dec.UseNumber()
+
+	// Parse the man config
+	err := dec.Decode(&cfg)
+	if err != nil {
+		log.Fatalf("%v\n", err)
+	}
+
+	// Let our submodule parse its own config
+	err = initSubModule(cfg.S)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+
+	var out bytes.Buffer
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		log.Fatalf("Marshal error: %s", err)
+	}
+
+	err = json.Indent(&out, b, "", "    ")
+	if err != nil {
+		log.Fatalf("Indent error: %s", err)
+	}
+	out.WriteTo(os.Stdout)
+
+	// Output:
+	// {
+	//     "A": "app"
 	// }
 }
