@@ -30,7 +30,7 @@ func normalize(kv []interface{}) []interface{} {
 	// and insist that the rest of the arguments are also Logables
 	var expkv []interface{}
 	var i int
-	for {
+	for len(kv) > i {
 		if logable, ok := kv[i].(Logable); ok {
 			expkv = append(expkv, logable.LogValues()...)
 		} else {
