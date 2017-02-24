@@ -21,6 +21,8 @@ const (
 
 var fdState *state
 
+// The library can manage either *os.File objects or
+// objects which can supply an *os.File via a dup() by calling File()
 type filer interface {
 	File() (*os.File, error)
 }
@@ -49,12 +51,12 @@ type state struct {
 	// When an available *sdfile is use it's recorded here.
 	// These (if not closed) are also the *os.File exported
 	// a map removed duplicates
-	active map[uintptr]*sdfile
+	active map[interface{}]*sdfile
 }
 
 func newState() (s *state) {
 	s = &state{}
-	s.active = make(map[uintptr]*sdfile)
+	s.active = make(map[interface{}]*sdfile)
 	return
 }
 
@@ -75,11 +77,35 @@ func (s *state) _activeFiles() []*sdfile {
 	ls := make([]*sdfile, len(s.active))
 	var i int
 	for _, sd := range s.active {
-		ls[i] = sd
-		i++
+		if sd != nil {
+			ls[i] = sd
+			i++
+		}
 	}
 	return ls
 }
+
+func _activefds() (ret []uintptr) {
+	list := fdState.activeFiles()
+	for _, sd := range list {
+		ret = append(ret, sd.File.Fd())
+	}
+	return
+}
+
+func _availablefds() (ret []uintptr) {
+
+	fdState.mutex.Lock()
+	defer fdState.mutex.Unlock()
+
+	for _, sd := range fdState.available {
+		if sd != nil {
+			ret = append(ret, sd.File.Fd())
+		}
+	}
+	return
+}
+
 
 // Cleanup closes all inherited file descriptors which have not been Exported
 func Cleanup() {
@@ -91,11 +117,17 @@ func (s *state) cleanup() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	s._cleanupLocked()
+}
+
+
+func (s* state) _cleanupLocked() {
 	for _, f := range s.available {
 		if f != nil {
 			f.close()
 		}
 	}
+	s.available = nil
 }
 
 // Reset closes all inherited an non Exported file descriptors and makes the current
@@ -109,13 +141,27 @@ func Reset() {
 func (s *state) reset() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	for _, f := range s.available {
-		if f != nil {
-			f.close()
+	// close all FD's not actually used
+	s._cleanupLocked()
+
+	// make the current active FDs available again
+	s.available = s._activeFiles()
+
+	// update starting point data
+	var nidx int
+	s.names = nil
+	for _, sd := range s.available {
+		if sd != nil {
+			s.names = append(s.names, sd.name)
+			nidx++
 		}
 	}
-	s.available = s._activeFiles()
-	s.active = make(map[uintptr]*sdfile)
+
+	s.count = nidx
+	s.err = nil
+
+	// reset the active FDs' to be empty
+	s.active = make(map[interface{}]*sdfile)
 }
 
 func (s *state) inherit() error {
@@ -179,14 +225,53 @@ func (s *state) inherit() error {
 			sdf := &sdfile{name: nm, File: file}
 			s.available = append(s.available, sdf)
 		}
+
 		s.count = nidx
 	})
 	s.err = retErr
 	return retErr
 }
 
-// Export makes a dup() of the file descriptor managed managed by the sd package, marked
-// as in active use.
+// Forget makes the sd library forget about its file descriptor (made by Export)
+// associated with either an exported object or a string naming a file descriptor.
+// If more file descriptors are named the same, they are all closed.
+// Forget should be passed, either a string naming the file descriptor, OR the object
+// originally exported.
+func Forget(f interface{}) (err error) {
+	s := fdState
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	switch str := f.(type) {
+	case string:
+		// Close all files with that systemd name
+		for i, file := range s.active {
+			if file != nil && file.name == str {
+				file.File.Close()
+				s.active[i] = nil
+				delete(s.active, i)
+			}
+		}
+	default:
+		// Look up the object and close the file descriptor we have for it.
+		if file, ok := s.active[f]; ok {
+			file.File.Close()
+			s.active[f] = nil
+			delete(s.active, f)
+		} else {
+			err = errors.New("File descriptor not exported")
+		}
+	}
+	return
+}
+
+// Export records a dup() of the file descriptor and makes it managed by the sd package, marked
+// as in active use. Closing the object provided will not close the managed file descriptor, so
+// any socket connection will still be open an be able to be transferred to other processes/objects
+// in open state.
+// If you want to stop managing the file descriptor and close it, call Forget() on the name, or provided
+// the same object as was exported.
 func Export(sdname string, f interface{}) (err error) {
 	s := fdState
 	var file *os.File
@@ -214,11 +299,12 @@ func Export(sdname string, f interface{}) (err error) {
 		err = errors.New("Unknown file type. Not exported")
 		return
 	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	fd := file.Fd()
-	if _, already := s.active[fd]; !already {
-		s.active[fd] = &sdfile{File: file, name: sdname}
+
+	if _, already := s.active[f]; !already {
+		s.active[f] = &sdfile{File: file, name: sdname}
 	} else {
 		// This probably shouldn't happen, since it would mean we had gotten an
 		// already used fd from dup()
@@ -242,8 +328,8 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
 }
 
 // FileWith returns any file descriptor (as an *os.File) which matches the given systemd name
-// *and* any FileTests provided from the available pool of inherited file descriptors.
-// The file descriptor is marked as no longer available.
+// *and* any FileTests provided from the available pool of (inherited) file descriptors.
+// The file descriptor is marked as no longer available and forgotten by the library.
 // If the name requested is "", any file descriptor matching the tests is returned.
 // The actual name is also returned FYI (in case the requested name was "")
 // The name provided here is *NOT* the same name as the calling .Name() on the returned file.
@@ -253,6 +339,7 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
 // test to determine whether the file is actually the one you need should be defined and passed as
 // a FileTest. You cannot get a file based on "half-a-test", do some more testing later and
 // then regret and put it back. Write a FileTest function instead.
+// If you want the sd library to track the returned file as in active use, call Export() on it.
 func FileWith(sdname string, tests ...FileTest) (rfile *os.File, rname string, err error) {
 	s := fdState
 	s.mutex.Lock()
@@ -281,6 +368,7 @@ func FileWith(sdname string, tests ...FileTest) (rfile *os.File, rname string, e
 
 // ListenFdsWithNames return the number of inherited filedescriptors and their names, along with any error
 // occurring while inheriting them.
+// Calling Reset() will reset these values too.
 func ListenFdsWithNames() (count int, names []string, err error) {
 	return fdState.count, fdState.names, fdState.err
 }

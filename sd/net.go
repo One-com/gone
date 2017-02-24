@@ -12,6 +12,7 @@ var listenerBacklog = maxListenerBacklog()
 // InheritNamedListener returns a net.Listener and its systemd name passing
 // the tests (and name criteria) provided.
 // If there's no inherited FD which can be used the returned listener will be nil.
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, gotName string, err error) {
 	var file *os.File
 	// look for an inherited listener
@@ -24,7 +25,7 @@ func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, g
 		if err != nil {
 			return
 		}
-		err = Export(gotName, file)
+		err = Export(gotName, l)
 		file.Close() // FileListener made a dup(). Export made a dup(). This copy is useless
 	}
 	return
@@ -33,6 +34,7 @@ func InheritNamedListener(wantName string, tests ...FileTest) (l net.Listener, g
 // InheritNamedPacketConn returns a net.Listener and its systemd name passing
 // the tests (and name criteria) provided.
 // If there's no inherited FD which can be used the returned listener will be nil.
+// The returned packetconn will be Export'ed by the sd library. Call Forget() to undo the export.
 func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketConn, gotName string, err error) {
 	var file *os.File
 	// look for an inherited listener
@@ -45,7 +47,7 @@ func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketCon
 		if err != nil {
 			return
 		}
-		err = Export(gotName, file)
+		err = Export(gotName, l)
 		file.Close() // FilePacketConn made a dup(). Export made a dup(). This copy is useless
 	}
 	return
@@ -54,6 +56,7 @@ func InheritNamedPacketConn(wantName string, tests ...FileTest) (l net.PacketCon
 // Listen returns a net.Listener like net.Listen, but will first check
 // whether an inherited file descriptor is already listening before
 // creating a new socket
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func Listen(nett, laddr string) (net.Listener, error) {
 	switch nett {
 	default:
@@ -76,6 +79,7 @@ func Listen(nett, laddr string) (net.Listener, error) {
 // ListenPacket returns a net.PacketConn like net.ListenPacket, but will first
 // check whether an inherited file descriptor is already available before
 // creating a new socket
+// The returned packetconn will be Export'ed by the sd library. Call Forget() to undo the export.
 func ListenPacket(nett, laddr string) (net.PacketConn, error) {
 	switch nett {
 	default:
@@ -103,12 +107,14 @@ func ListenPacket(nett, laddr string) (net.PacketConn, error) {
 
 // ListenTCP returns a normal *net.TCPListener. It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func ListenTCP(nett string, laddr *net.TCPAddr) (*net.TCPListener, error) {
 	return NamedListenTCP("", nett, laddr)
 }
 
 // NamedListenTCP is like ListenTCP, but requires the file descriptor used to have
 // the given systemd socket name
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func NamedListenTCP(name, nett string, laddr *net.TCPAddr) (l *net.TCPListener, err error) {
 
 	var il net.Listener
@@ -134,12 +140,14 @@ func NamedListenTCP(name, nett string, laddr *net.TCPAddr) (l *net.TCPListener, 
 
 // ListenUnixgram returns a normal *net.UnixConn. It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
+// The returned conn will be Export'ed by the sd library. Call Forget() to undo the export.
 func ListenUnixgram(nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
 	return NamedListenUnixgram("", nett, laddr)
 }
 
 // NamedListenUnixgram is like ListenUnixgram, but will require any used inherited
 // file descriptor to have the given systemd socket name
+// The returned conn will be Export'ed by the sd library. Call Forget() to undo the export.
 func NamedListenUnixgram(name, nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
 	return nil, nil
 }
@@ -147,12 +155,14 @@ func NamedListenUnixgram(name, nett string, laddr *net.UnixAddr) (*net.UnixConn,
 // ListenUnix is like net.ListenUnix and will return a normal *net.UnixListener.
 // It will create a new socket
 // if there's no appropriate inherited file descriptor listening.
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func ListenUnix(nett string, laddr *net.UnixAddr) (*net.UnixListener, error) {
 	return NamedListenUnix("", nett, laddr)
 }
 
 // NamedListenUnix is like ListenUnix, but will require any used inherited
 // file descriptor to have the given systemd socket name
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func NamedListenUnix(name, nett string, laddr *net.UnixAddr) (l *net.UnixListener, err error) {
 
 	var il net.Listener
