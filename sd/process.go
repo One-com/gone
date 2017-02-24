@@ -75,16 +75,23 @@ func StartProcess(env []string) (int, error) {
 // for termination. To enable this signaling in the child process, call
 // SignalParentTermination when ready.
 func ReplaceProcess(sig syscall.Signal) (int, error) {
-	pid := os.Getpid()
-	var env [2]string
-	var c int
-	env[0] = fmt.Sprintf("%s=%d", envForkExecPid, pid)
-	if sig != syscall.Signal(0) {
-		c = 1
-		env[1] = fmt.Sprintf("%s=%d", envForkExecSig, sig)
-	}
-	return StartProcess(env[0:c])
+	var emptyenv [0]string
+	return ReplaceProcessEnv(sig, emptyenv[:])
 }
+
+// ReplaceProcessEnv - like ReplaceProcess, but allows extra environment variables
+// to be passed into the new instance
+func ReplaceProcessEnv(sig syscall.Signal, env []string) (int, error) {
+	pid := os.Getpid()
+
+	env = env[0:len(env):len(env)] // if adding to the env, force copy to not modify original
+	env = append(env, fmt.Sprintf("%s=%d", envForkExecPid, pid))
+	if sig != syscall.Signal(0) {
+		env = append(env, fmt.Sprintf("%s=%d", envForkExecSig, sig))
+	}
+	return StartProcess(env[:])
+}
+
 
 // SignalParentTermination signals any parent who have asked to be terminated via the ENV
 func SignalParentTermination() error {
