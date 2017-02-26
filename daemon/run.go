@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/One-com/gone/daemon/srv"
+	"github.com/One-com/gone/daemon/ctrl"
 	"github.com/One-com/gone/sd"
 	"os"
 	"sync"
@@ -57,6 +58,8 @@ type runcfg struct {
 	instantiate    ConfigureFunc
 	syncReload     bool
 	readyCallbacks []func() error
+	ctrlSockPath   string
+	ctrlSockName   string
 }
 
 // RunOption change the behaviour of Run()
@@ -66,6 +69,13 @@ type RunOption func(*runcfg)
 func InstantiateServers(f ConfigureFunc) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.instantiate = f
+	})
+}
+
+func ControlSocket(name, path string) RunOption {
+	return RunOption(func(rc *runcfg) {
+		rc.ctrlSockPath = path
+		rc.ctrlSockName = name
 	})
 }
 
@@ -194,9 +204,14 @@ func Run(opts ...RunOption) (err error) {
 	first_config_load_done = nil
 	first_mu.Unlock()
 
+	// Control socket
+	var cs *ctrl.Server
+	var csdone chan struct{}
+	
 MainLoop:
 	for {
 		srvmu.Lock()
+		// TODO: maybe not refuse to run with no servers?
 		if servers == nil {
 			if configErr == nil {
 				err = errors.New("No Servers")
@@ -209,6 +224,30 @@ MainLoop:
 		running_servers := servers
 		running_revision := revision
 		running_cleanups := cleanups
+
+		// Set up any control socket
+		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
+			cs = &ctrl.Server{
+				Addr:  cfg.ctrlSockPath,
+				ListenerFdName: cfg.ctrlSockName,
+				HelpCommand: "?",
+				QuitCommand: "q",
+				Logger: master.Log,
+			}
+			csdone = make(chan struct{})
+			err = cs.Listen()
+			if err != nil {
+				master.Log(srv.LvlCRIT, fmt.Sprintf("Failed listen on control socket: %s", err.Error()))
+			}
+			go func() {
+				err = cs.Serve()
+				if err != nil {
+					master.Log(srv.LvlCRIT, fmt.Sprintf("Control socket exited with error: %s", err.Error()))
+				}
+				close(csdone)
+			}()
+		}
+		
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
@@ -222,9 +261,9 @@ MainLoop:
 		}
 
 		if cfg.syncReload {
-			recordShutdown(running_revision, running_cleanups, done)
+			recordShutdown(running_revision, running_cleanups, done, cs, csdone)
 		} else {
-			go recordShutdown(running_revision, running_cleanups, done)
+			go recordShutdown(running_revision, running_cleanups, done, cs, csdone)
 		}
 	} // end MainLoop
 
@@ -232,13 +271,13 @@ MainLoop:
 	if graceful_exit {
 		srvmu.Lock()
 		master.Log(srv.LvlNOTICE, "Waiting for graceful shutdown")
-		recordShutdown(revision, cleanups, done)
+		recordShutdown(revision, cleanups, done, cs, csdone)
 		srvmu.Unlock()
 	}
 	return
 }
 
-func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}) {
+func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}, cs *ctrl.Server, csdone chan struct{}) {
 	<-done
 	for _, f := range cleanups {
 		e := f()
@@ -247,6 +286,13 @@ func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}) {
 		}
 	}
 	master.Log(srv.LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
+
+	// Stop control socket
+	if cs != nil {
+		cs.Shutdown()
+		<-csdone
+		master.Log(srv.LvlNOTICE, "Control socket shut down")
+	}
 }
 
 // Reload tells Run() to instatiate new servers and continue serving with them.
