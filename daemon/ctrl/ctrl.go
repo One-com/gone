@@ -507,7 +507,7 @@ func (s *Server) help(w io.Writer, hcmd, qcmd string) {
 		fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, qcmd, syntaxlength, "", commentlength, "exit and close the connection")
 	}
 	if hcmd != "" {
-		fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, hcmd, syntaxlength, "", commentlength, "help")
+		fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, hcmd, syntaxlength, "[cmd]", commentlength, "help")
 	}
 
 
