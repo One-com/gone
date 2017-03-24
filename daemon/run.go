@@ -3,12 +3,15 @@ package daemon
 import (
 	"errors"
 	"fmt"
+	"github.com/One-com/gone/task"
 	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/daemon/ctrl"
 	"github.com/One-com/gone/sd"
 	"os"
 	"sync"
 	"syscall"
+	"time"
+	"context"
 )
 
 // CleanupFunc is a function to call after a srv.Server is fully exited.
@@ -21,25 +24,23 @@ type CleanupFunc func() error
 // The Run() function needs a ConfigureFunc to instantiate the Servers to serve.
 type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 
-var (
-	srvmu     sync.Mutex
-	revision  int
-	configErr error
-	servers   []srv.Server
-	cleanups  []CleanupFunc
+type ConfigTaskFunc func() ([]task.TaskSpec, []CleanupFunc, error)
 
+var (
 	stopch chan bool // true to do graceful shutdown
+	tostopch chan time.Duration
 	reload chan struct{}
 )
 
 var master *srv.MultiServer
 
 func init() {
-	// creat the channel to propate reload events to the reload manager
+	// create the channel to propagate reload events to the reload manager
 	reload = make(chan struct{}, 1) // 1 to take pending into account
 
 	// create the channel which tells the master reload-loop to exit
 	stopch = make(chan bool, 1) // 1 to take pending into account
+	tostopch = make(chan time.Duration, 1)
 
 	master = &srv.MultiServer{}
 }
@@ -136,6 +137,19 @@ func SdNotifyOnReady(mainpid bool, status string) RunOption {
 // replace the current running servers with the new set, using the gone/sd package to
 // re-create sockets without closing TCP connections.
 func Run(opts ...RunOption) (err error) {
+
+	var (
+		srvmu     sync.Mutex
+		revision  int
+		configErr error
+		servers   []srv.Server
+		cleanups  []CleanupFunc
+
+		nextContext context.Context
+		nextCancel context.CancelFunc
+	)
+
+
 	cfg := &runcfg{readyCallbacks: make([]func() error, 0)}
 	for _, o := range opts {
 		o(cfg)
@@ -168,20 +182,28 @@ func Run(opts ...RunOption) (err error) {
 	go func() {
 		for {
 			select {
+			case timeout := <-tostopch:
+				exit = true
+				_ = timeout
+				nextCancel()
 			case graceful_exit = <-stopch:
 				exit = true
-				master.Shutdown() // noop if not started
+				nextCancel()
 			// Wait for reload signal
 			case <-reload:
 				s, c, err := cfg.instantiate()
 				if err == nil {
 					// Replace the server to run with a new slice.
 					srvmu.Lock()
+					oldCancel := nextCancel
+					nextContext, nextCancel = context.WithCancel(context.Background())
 					servers = s
 					cleanups = c
 					revision++
 					srvmu.Unlock()
-					master.Shutdown() // noop if not started
+					if oldCancel != nil {
+						oldCancel()
+					}
 				} else {
 					srvmu.Lock()
 					configErr = err
@@ -207,7 +229,7 @@ func Run(opts ...RunOption) (err error) {
 	// Control socket
 	var cs *ctrl.Server
 	var csdone chan struct{}
-	
+
 MainLoop:
 	for {
 		srvmu.Lock()
@@ -224,6 +246,8 @@ MainLoop:
 		running_servers := servers
 		running_revision := revision
 		running_cleanups := cleanups
+
+		running_context := nextContext
 
 		// Set up any control socket
 		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
@@ -247,8 +271,13 @@ MainLoop:
 				close(csdone)
 			}()
 		}
-		
+
 		srvmu.Unlock()
+
+		go func() {
+			<-running_context.Done()
+			master.Shutdown()
+		}()
 
 		// Start serving the currently configured servers
 		if done, err = master.Serve(running_servers, readyCallback); err != nil {
@@ -309,6 +338,14 @@ func Reload() {
 func Exit(graceful bool) {
 	select {
 	case stopch <- graceful: // buffered by 1 exit operation at a time
+	default:
+		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
+	}
+}
+
+func ExitGracefulWithTimeout(to time.Duration) {
+	select {
+	case tostopch <- to: // buffered by 1 exit operation at a time
 	default:
 		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
 	}
