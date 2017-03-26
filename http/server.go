@@ -6,18 +6,15 @@ import (
 	"sync"
 	"context"
 	"crypto/tls"
-)
 
-// Listener is an object which can create a slice of listeners when invoked.
-type Listener interface {
-	Listen() (listeners []net.Listener, err error)
-}
+	"github.com/One-com/gone/netutil"
+)
 
 // Server wraps around gone/http/graceful HTTP server implementing gone/the daemon/srv.Server interface
 // If ErrorLog is set, errors will be logged to it.
 type Server struct {
 	*http.Server
-	Listeners Listener
+	Listeners netutil.StreamListener
 	listeners []net.Listener
 }
 

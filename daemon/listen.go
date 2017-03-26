@@ -43,7 +43,7 @@ type ListenerSpec struct {
 	TLSConfig *tls.Config
 }
 
-// ListenerGroup implement the gone/http.Listener interface using the gone/sd library.
+// ListenerGroup implement a gone/daemon/listen interface using the gone/sd library.
 type ListenerGroup []ListenerSpec
 
 // Listen will create new listeners based on ListenerSpec, first trying to inherit
@@ -64,17 +64,38 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 
 		name := ls.ListenerFdName
 		var ln net.Listener
-		var addr *net.TCPAddr
+		var basictest sd.FileTest
 
-		if ls.Addr != "" {
-			addr, err = net.ResolveTCPAddr("tcp", ls.Addr)
-			if err != nil {
-				return
-			}
+		var taddr *net.TCPAddr
+		var uaddr *net.UnixAddr
+		
+		var nett string = ls.Net
+		if nett == "" { // default to TCP
+			nett = "tcp"
 		}
 
+		switch nett {
+		case "tcp", "tcp4", "tcp6":	
+			if ls.Addr != "" {
+				taddr, err = net.ResolveTCPAddr(nett, ls.Addr)
+				if err != nil {
+					return
+				}
+			}
+			basictest = sd.IsTCPListener(taddr)
+		case "unix", "unixpacket":
+		
+			if ls.Addr != "" {
+				uaddr, err = net.ResolveUnixAddr(nett, ls.Addr)
+				if err != nil {
+					return
+				}
+			}
+			basictest = sd.IsUNIXListener(uaddr)
+		}
+		
 		var filetests []sd.FileTest
-		filetests = append(filetests, sd.IsTCPListener(addr))
+		filetests = append(filetests, basictest)
 		filetests = append(filetests, ls.ExtraFileTests...)
 
 		ln, name, err = sd.InheritNamedListener(name, filetests...)
@@ -89,17 +110,25 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 			}
 
 			// make a fresh listener
-			var tl *net.TCPListener
-			tl, err = net.ListenTCP("tcp", addr)
+			var new net.Listener
+			switch nett {
+			case "tcp", "tcp4", "tcp6":		
+				new, err = net.ListenTCP(nett, taddr)
+				if err != nil {
+					return
+				}
+			case "unix", "unixpacket":
+				new, err = net.ListenUnix(nett, uaddr)
+				if err != nil {
+					return
+				}
+			}
+			err = sd.Export(name, new)
 			if err != nil {
+				new.Close()
 				return
 			}
-			err = sd.Export(name, tl)
-			if err != nil {
-				tl.Close()
-				return
-			}
-			ln = tl
+			ln = new
 		}
 
 		ls.ListenerFdName = name
