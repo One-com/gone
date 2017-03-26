@@ -17,16 +17,3 @@ Package gone/sd consists of two parts.
 
 * Replacement functions for some of the stdlib "net" package for parsing the environment passed on from systemd to create sockets (and other files) inherited from systemd.
 
-## Example
-
-The library is 100% source code compatible with the standard library logger
-
-```go
-    import "github.com/One-com/gone/sd"
-
-	
-
-```
-
-Plese see the [![GoDoc](https://godoc.org/github.com/one-com/gone/sd?status.svg)](https://godoc.org/github.com/one-com/gone/sd) documentation
-
