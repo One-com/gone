@@ -19,11 +19,10 @@ const (
 	LvlDEBUG
 )
 
-// A LoggerFunc can be set to make the newstyle library log to a custom log library
+// A LoggerFunc can be set to make the library log to a custom log library
 type LoggerFunc func(level int, message string)
 
 // SetLogger sets a custom log function.
-// The default log function logs to stdlib log.Println()
 func (m *MultiServer) SetLogger(f LoggerFunc) {
 	m.logmu.Lock()
 	defer m.logmu.Unlock()
@@ -183,7 +182,7 @@ func (m *MultiServer) start() (err error) {
 	sd.Cleanup()
 
 	for _, s := range m.servers {
-		if m != nil {
+		if s != nil {
 			m.exited.Add(1) // Undone when the Server go-routine exits
 			m.startServer(s) // does not block
 		}

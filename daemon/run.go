@@ -3,7 +3,6 @@ package daemon
 import (
 	"errors"
 	"fmt"
-	"github.com/One-com/gone/task"
 	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/daemon/ctrl"
 	"github.com/One-com/gone/sd"
@@ -24,15 +23,13 @@ type CleanupFunc func() error
 // The Run() function needs a ConfigureFunc to instantiate the Servers to serve.
 type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 
-type ConfigTaskFunc func() ([]task.TaskSpec, []CleanupFunc, error)
+type ConfigFunc func() ([]Server, []CleanupFunc, error)
 
 var (
 	stopch chan bool // true to do graceful shutdown
-	tostopch chan time.Duration
-	reload chan struct{}
+	tostopch chan time.Duration // stop gracefully with timeout
+	reload chan struct{} // reload the daemon config
 )
-
-var master *srv.MultiServer
 
 func init() {
 	// create the channel to propagate reload events to the reload manager
@@ -41,22 +38,11 @@ func init() {
 	// create the channel which tells the master reload-loop to exit
 	stopch = make(chan bool, 1) // 1 to take pending into account
 	tostopch = make(chan time.Duration, 1)
-
-	master = &srv.MultiServer{}
-}
-
-// SetLogger sets a custom log function.
-func SetLogger(f srv.LoggerFunc) {
-	master.SetLogger(f)
-}
-
-// Log calls the custom log function set - if any
-func Log(level int, msg string) {
-	master.Log(level, msg)
 }
 
 type runcfg struct {
-	instantiate    ConfigureFunc
+	legacy_cfgfunc ConfigureFunc
+	cfgfunc        ConfigFunc
 	syncReload     bool
 	readyCallbacks []func() error
 	ctrlSockPath   string
@@ -66,10 +52,18 @@ type runcfg struct {
 // RunOption change the behaviour of Run()
 type RunOption func(*runcfg)
 
+// InstantiateServers gives Run() a ConfigFunc. This is the only mandatory RunOption
+// (except you when you use the legacy InstantiateServers() option)
+func Configurator(f ConfigFunc) RunOption {
+	return RunOption(func(rc *runcfg) {
+		rc.cfgfunc = f
+	})
+}
+
 // InstantiateServers gives Run() a ConfigureFunc. This is the only mandatory RunOption
 func InstantiateServers(f ConfigureFunc) RunOption {
 	return RunOption(func(rc *runcfg) {
-		rc.instantiate = f
+		rc.legacy_cfgfunc = f
 	})
 }
 
@@ -121,7 +115,7 @@ func SdNotifyOnReady(mainpid bool, status string) RunOption {
 			}
 			err := sd.Notify(0, msg[0:c]...)
 			if err == sd.ErrSdNotifyNoSocket {
-				Log(srv.LvlWARN, "No systemd notify socket")
+				Log(LvlWARN, "No systemd notify socket")
 				return nil
 			}
 			return err
@@ -142,11 +136,11 @@ func Run(opts ...RunOption) (err error) {
 		srvmu     sync.Mutex
 		revision  int
 		configErr error
-		servers   []srv.Server
+		servers   []Server
 		cleanups  []CleanupFunc
 
 		nextContext context.Context
-		nextCancel context.CancelFunc
+		nextCancel  context.CancelFunc
 	)
 
 
@@ -155,76 +149,99 @@ func Run(opts ...RunOption) (err error) {
 		o(cfg)
 	}
 
-	if cfg.instantiate == nil {
+	if cfg.cfgfunc == nil && cfg.legacy_cfgfunc == nil {
 		return errors.New("Don't know how to configure servers")
 	}
 
 	readyCallback := func() error {
 		var err error
 		for _, f := range cfg.readyCallbacks {
-			err = f()
+			e := f()
+			if err == nil {
+				err = e
+			}
 		}
 		return err
 	}
 
-	var exit          bool
-	var graceful_exit bool
-	var done chan struct{}
+	var exit          bool // set true when Run() should break the main loop
+	var graceful_exit bool // whether exit of Run() should wait for clean shutdown
+	var shutdown_timeout time.Duration // how long to wait for last generation servers to be completely done
 
-	var first_mu sync.Mutex
+	// We cannot serve the first run before the Event handler tells us configuration is done
+	//var first_mu sync.Mutex
 	first_config_load_done := make(chan struct{})
 
 	// Event handler
-	// gone/signals serialized the signals, but since we don't know how they are wired up and
-	// becomes events to the daemon MainLoop we need to serialize any event affecting
+	// Even if gone/signals or other code serialized the signals, we don't know how they are wired up and
+	// they become async events to the daemon MainLoop again.
+	// We need to serialize any event affecting
 	// shutdown/restart here again to avoid Exit events arriving after a reload is in effect,
 	// but before the new Servers are running. That would loose the exit signal.
+	eventch := make(chan struct{})
 	go func() {
+		var firstConfigDoneOnce sync.Once
+	EVENTLOOP:
 		for {
 			select {
 			case timeout := <-tostopch:
 				exit = true
-				_ = timeout
+				shutdown_timeout = timeout
 				nextCancel()
 			case graceful_exit = <-stopch:
 				exit = true
 				nextCancel()
 			// Wait for reload signal
 			case <-reload:
-				s, c, err := cfg.instantiate()
+				var err error
+				var newServers  []Server
+				var newCleanups []CleanupFunc
+				// prefer non-legacy servers
+				if cfg.cfgfunc != nil {
+					newServers, newCleanups, err = cfg.cfgfunc()
+				} else {
+					// Wrap all legacy servers in compatibility wrapper
+					s, c, e := cfg.legacy_cfgfunc()
+					for _, l := range s {
+						newServers = append(newServers, &wrapper{Server:l})
+					}
+					newCleanups = c
+					err = e
+				}
 				if err == nil {
-					// Replace the server to run with a new slice.
+					// Replace the server to run with a new set of server objects
 					srvmu.Lock()
 					oldCancel := nextCancel
 					nextContext, nextCancel = context.WithCancel(context.Background())
-					servers = s
-					cleanups = c
+					servers = newServers
+					cleanups = newCleanups
 					revision++
 					srvmu.Unlock()
+					// ready to replace, now cancel old runContext and see what happens
+					// when serve() exists
 					if oldCancel != nil {
 						oldCancel()
 					}
 				} else {
+					// configuration failed.
 					srvmu.Lock()
 					configErr = err
 					srvmu.Unlock()
-					master.Log(srv.LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
+					Log(LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
 				}
-				first_mu.Lock()
-				if first_config_load_done != nil {
-					close(first_config_load_done)
-				}
-				first_mu.Unlock()
+				// Main loop might be waiting for the first config. Notify it's done.
+				firstConfigDoneOnce.Do(func() {close(first_config_load_done)})
+
+			case <-eventch:
+				break EVENTLOOP
 			}
 		}
 	}()
 
-	// Load the initial config
+	// Load the initial config by asking event manager to load it
 	reload <- struct{}{}
+	// Wait here until event manager is ready with first config
 	<-first_config_load_done
-	first_mu.Lock()
-	first_config_load_done = nil
-	first_mu.Unlock()
 
 	// Control socket
 	var cs *ctrl.Server
@@ -256,17 +273,17 @@ MainLoop:
 				ListenerFdName: cfg.ctrlSockName,
 				HelpCommand: "?",
 				QuitCommand: "q",
-				Logger: master.Log,
+				Logger: Log,
 			}
 			csdone = make(chan struct{})
 			err = cs.Listen()
 			if err != nil {
-				master.Log(srv.LvlCRIT, fmt.Sprintf("Failed listen on control socket: %s", err.Error()))
+				Log(LvlCRIT, fmt.Sprintf("Failed listen on control socket: %s", err.Error()))
 			}
 			go func() {
 				err = cs.Serve()
 				if err != nil {
-					master.Log(srv.LvlCRIT, fmt.Sprintf("Control socket exited with error: %s", err.Error()))
+					Log(LvlCRIT, fmt.Sprintf("Control socket exited with error: %s", err.Error()))
 				}
 				close(csdone)
 			}()
@@ -274,13 +291,8 @@ MainLoop:
 
 		srvmu.Unlock()
 
-		go func() {
-			<-running_context.Done()
-			master.Shutdown()
-		}()
-
 		// Start serving the currently configured servers
-		if done, err = master.Serve(running_servers, readyCallback); err != nil {
+		if err = serve(running_context, running_servers, readyCallback); err != nil {
 			return
 		}
 
@@ -290,37 +302,70 @@ MainLoop:
 		}
 
 		if cfg.syncReload {
-			recordShutdown(running_revision, running_cleanups, done, cs, csdone)
+			recordShutdown(running_revision, running_servers, running_cleanups, 0, cs, csdone)
 		} else {
-			go recordShutdown(running_revision, running_cleanups, done, cs, csdone)
+			go recordShutdown(running_revision, running_servers, running_cleanups, 0, cs, csdone)
 		}
 	} // end MainLoop
 
-	master.Log(srv.LvlNOTICE, "Exit mainloop")
+	Log(LvlNOTICE, "Exit mainloop")
 	if graceful_exit {
 		srvmu.Lock()
-		master.Log(srv.LvlNOTICE, "Waiting for graceful shutdown")
-		recordShutdown(revision, cleanups, done, cs, csdone)
+		Log(LvlNOTICE, "Waiting for graceful shutdown")
+		recordShutdown(revision, servers, cleanups, shutdown_timeout, cs, csdone)
 		srvmu.Unlock()
 	}
+	close(eventch)
 	return
 }
 
-func recordShutdown(rev int, cleanups []CleanupFunc, done chan struct{}, cs *ctrl.Server, csdone chan struct{}) {
-	<-done
+func recordShutdown(rev int, servers []Server, cleanups []CleanupFunc, timeout time.Duration, cs *ctrl.Server, csdone chan struct{}) {
+
+	var (
+		ctx context.Context
+		cancel context.CancelFunc
+		wg sync.WaitGroup
+		//mu sync.Mutex
+	)
+	if timeout == 0 {
+		ctx = context.Background()
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+	}
+	for _, s := range servers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e := s.Shutdown(ctx)
+			if e != nil {
+				Log(LvlERROR, "Forcefully closing...")
+				e = s.Close()
+				if e != nil {
+					Log(LvlCRIT, "Forcefully closing failed")
+				}
+			}
+		}()
+	}
+	wg.Wait()
+
+	// All servers done - either voluntarily or the hard way.
+	// Run cleanups
 	for _, f := range cleanups {
 		e := f()
 		if e != nil {
-			master.Log(srv.LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
+			Log(LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
 		}
 	}
-	master.Log(srv.LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
+	Log(LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
 
 	// Stop control socket
 	if cs != nil {
 		cs.Shutdown()
 		<-csdone
-		master.Log(srv.LvlNOTICE, "Control socket shut down")
+		Log(LvlNOTICE, "Control socket shut down")
+	} else {
+		Log(LvlNOTICE, "No control socket")
 	}
 }
 
@@ -330,7 +375,7 @@ func Reload() {
 	select {
 	case reload <- struct{}{}:
 	default:
-		master.Log(srv.LvlNOTICE, "Reload already pending")
+		Log(LvlNOTICE, "Reload already pending")
 	}
 }
 
@@ -339,7 +384,7 @@ func Exit(graceful bool) {
 	select {
 	case stopch <- graceful: // buffered by 1 exit operation at a time
 	default:
-		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
+		Log(LvlNOTICE, "Main loop already waiting on exit")
 	}
 }
 
@@ -347,7 +392,7 @@ func ExitGracefulWithTimeout(to time.Duration) {
 	select {
 	case tostopch <- to: // buffered by 1 exit operation at a time
 	default:
-		master.Log(srv.LvlNOTICE, "Main loop already waiting on exit")
+		Log(LvlNOTICE, "Main loop already waiting on exit")
 	}
 }
 

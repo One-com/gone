@@ -3,10 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/One-com/gone/daemon"
-	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/signals"
-	"github.com/One-com/gone/http/gonesrv"
-	"github.com/One-com/gone/http/graceful"
+	gonehttp "github.com/One-com/gone/http"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/sd"
@@ -15,8 +13,6 @@ import (
 	"net/http"
 	"os"
 	"syscall"
-	"time"
-
 )
 
 //----------------- The actual server ----------------------
@@ -27,38 +23,34 @@ func myHandlerFunc(cfg string, revision int) http.HandlerFunc {
 	})
 }
 
-func newHTTPServer(handler http.HandlerFunc) (s srv.Server) {
+func newHTTPServer(handler http.HandlerFunc) (s *gonehttp.Server) {
 
 	gonelog := log.NewStdlibAdapter(log.Default(), syslog.LOG_CRIT)
 	errorlog := stdlog.New(gonelog, "", stdlog.LstdFlags)
 
 	// basic HTTP server
 	s1 := &http.Server{
-		Addr:     ":4321",
+		//Addr:     ":4321",
 		Handler:  handler,
 		ErrorLog: errorlog,
 	}
-	// wrapped to get Shutdown() and graceful shutdown
-	s2 := &graceful.Server{
-		Server:  s1,
-		Timeout: time.Duration(20) * time.Second,
-	}
-	// wrapped to get Listen()
-	s3 := &gonesrv.Server{
-		Server: s2,
+
+	s3 := &gonehttp.Server{
+		Server: s1,
+		Listeners: daemon.ListenerGroup{daemon.ListenerSpec{Addr: ":4321"}},
 	}
 	// Now a gone/http/goneserv.Server, expecting to be called upon to Listen()
 	return s3
 }
 
-func loadConfig(cfg string) daemon.ConfigureFunc {
+func loadConfig(cfg string) daemon.ConfigFunc {
 	var revision int
-	cf := daemon.ConfigureFunc(
-		func() (s []srv.Server, c []daemon.CleanupFunc, err error) {
+	cf := daemon.ConfigFunc(
+		func() (s []daemon.Server, c []daemon.CleanupFunc, err error) {
 			revision++
 			log.Printf("Loading config. rev: %d", revision)
 
-			s = make([]srv.Server, 1)
+			s = make([]daemon.Server, 1)
 			c = make([]daemon.CleanupFunc, 1)
 
 			s[0] = newHTTPServer(http.HandlerFunc(myHandlerFunc(cfg, revision)))
@@ -140,7 +132,7 @@ func main() {
 	log.Println("Starting server", "PID", os.Getpid())
 
 	runoptions := []daemon.RunOption{
-		daemon.InstantiateServers(configureFunc),
+		daemon.Configurator(configureFunc),
 		daemon.SdNotifyOnReady(true, "Ready and serving"),
 		daemon.SignalParentOnReady(),
 	}
