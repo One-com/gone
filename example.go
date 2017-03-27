@@ -36,6 +36,7 @@ func newHTTPServer(handler http.HandlerFunc) (s *gonehttp.Server) {
 	}
 
 	s3 := &gonehttp.Server{
+		Name: "Example",
 		Server: s1,
 		Listeners: daemon.ListenerGroup{daemon.ListenerSpec{Addr: ":4321"}},
 	}

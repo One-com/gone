@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -14,8 +15,11 @@ import (
 // If ErrorLog is set, errors will be logged to it.
 type Server struct {
 	*http.Server
+	// The object providing the listeners for this server
 	Listeners netutil.StreamListener
 	listeners []net.Listener
+	// Optionally set a name to by used in logging
+	Name string
 }
 
 // Listen make the server listen on the listeners returned by the object set in
@@ -27,7 +31,7 @@ func (s *Server) Listen() (err error) {
 	var listeners []net.Listener
 
 	spec := s.Listeners
-	
+
 	if spec == nil {
 
 		if saddr == "" {
@@ -40,8 +44,8 @@ func (s *Server) Listen() (err error) {
 		var ln net.Listener
 		ln, err = net.Listen("tcp", saddr)
 		if err != nil {
-			return 
-			
+			return
+
 		}
 		if s.TLSConfig != nil {
 			ln = tls.NewListener(ln, s.TLSConfig)
@@ -52,7 +56,7 @@ func (s *Server) Listen() (err error) {
 	}
 
 	s.listeners = listeners
-	
+
 	return
 }
 
@@ -62,7 +66,7 @@ func (s *Server) Listen() (err error) {
 func (s *Server) Serve(ctx context.Context) (err error) {
 
 	listeners := s.listeners
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex // protect the err return value
 
@@ -96,7 +100,7 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 			}
 		}()
 	}
-	
+
 	// then make something close the listeners when context is canceled
 	exit := make(chan struct{}) // ...and stop it when all are closed
 	go func() {
@@ -114,3 +118,16 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 	return
 }
 
+func (s *Server) Description() string {
+
+	var listeners string
+	for i, l := range s.listeners {
+		listeners += l.Addr().Network() + "/" + l.Addr().String()
+		if i != len(s.listeners) - 1 {
+			listeners += " "
+		}
+	}
+	desc := fmt.Sprintf("%s %s", s.Name, listeners)
+
+	return desc
+}
