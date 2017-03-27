@@ -260,7 +260,7 @@ MainLoop:
 			srvmu.Unlock()
 			return
 		}
-		running_servers := servers
+		running_server := serverEnsemble{servers, readyCallback}
 		running_revision := revision
 		running_cleanups := cleanups
 
@@ -292,7 +292,7 @@ MainLoop:
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
-		if err = serve(running_context, running_servers, readyCallback); err != nil {
+		if err = serve(running_context, running_server); err != nil {
 			return
 		}
 
@@ -302,9 +302,9 @@ MainLoop:
 		}
 
 		if cfg.syncReload {
-			recordShutdown(running_revision, running_servers, running_cleanups, 0, cs, csdone)
+			recordShutdown(running_revision, running_server, running_cleanups, 0, cs, csdone)
 		} else {
-			go recordShutdown(running_revision, running_servers, running_cleanups, 0, cs, csdone)
+			go recordShutdown(running_revision, running_server, running_cleanups, 0, cs, csdone)
 		}
 	} // end MainLoop
 
@@ -312,20 +312,18 @@ MainLoop:
 	if graceful_exit {
 		srvmu.Lock()
 		Log(LvlNOTICE, "Waiting for graceful shutdown")
-		recordShutdown(revision, servers, cleanups, shutdown_timeout, cs, csdone)
+		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdown_timeout, cs, csdone)
 		srvmu.Unlock()
 	}
 	close(eventch)
 	return
 }
 
-func recordShutdown(rev int, servers []Server, cleanups []CleanupFunc, timeout time.Duration, cs *ctrl.Server, csdone chan struct{}) {
+func recordShutdown(rev int, server Server, cleanups []CleanupFunc, timeout time.Duration, cs *ctrl.Server, csdone chan struct{}) {
 
 	var (
 		ctx context.Context
 		cancel context.CancelFunc
-		wg sync.WaitGroup
-		//mu sync.Mutex
 	)
 	if timeout == 0 {
 		ctx = context.Background()
@@ -333,21 +331,15 @@ func recordShutdown(rev int, servers []Server, cleanups []CleanupFunc, timeout t
 		ctx, cancel = context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 	}
-	for _, s := range servers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			e := s.Shutdown(ctx)
-			if e != nil {
-				Log(LvlERROR, "Forcefully closing...")
-				e = s.Close()
-				if e != nil {
-					Log(LvlCRIT, "Forcefully closing failed")
-				}
-			}
-		}()
+
+	e := server.Shutdown(ctx)
+	if e != nil {
+		Log(LvlERROR, "Forcefully closing...")
+		e = server.Close()
+		if e != nil {
+			Log(LvlCRIT, "Forcefully closing failed")
+		}
 	}
-	wg.Wait()
 
 	// All servers done - either voluntarily or the hard way.
 	// Run cleanups

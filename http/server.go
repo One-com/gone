@@ -73,11 +73,27 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 		go func() {
 			defer wg.Done()
 			lerr := s.Server.Serve(listener)
-			mu.Lock()
-			if err == nil {
-				err = lerr
+			if lerr != nil {
+				// This is nuts... Hey Go. You can do better
+				// https://github.com/golang/go/issues/4373
+				switch et := lerr.(type) {
+				case *net.OpError:
+					switch et.Op {
+					case "accept":
+						// TCP servers which stop by closing the listener socket
+						// ignore
+						lerr = nil
+					}
+				default:
+					// let other errors pass
+				}
+				// end hack
+				mu.Lock()
+				if err == nil {
+					err = lerr
+				}
+				mu.Unlock()
 			}
-			mu.Unlock()
 		}()
 	}
 	

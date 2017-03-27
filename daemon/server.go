@@ -26,18 +26,26 @@ type Server interface {
 	Close() error
 }
 
-// serve implements the main logic of handling the list of running servers.
-// First let then Listen().
-// if no error, then start all by calling Serve()
-// Then call the ready callback and wait for them to exit
-func serve(ctx context.Context, servers []Server, ready_cb func() error) (err error) {
+// descriptor - A Server implementing the descriptor interface will use that description in any logging
+type descriptor interface {
+	Description() string
+}
 
-	if servers == nil || len(servers) == 0 {
-		return errors.New("No servers")
+type serverEnsemble struct {
+	servers []Server
+	readycb func() error
+}
+
+var errNoServers = errors.New("No servers")
+
+func (se serverEnsemble) Listen() (err error) {
+
+	if len(se.servers) == 0 {
+		return errNoServers
 	}
 
 	// Prepare for run by letting each server Listen
-	for _, s := range servers {
+	for _, s := range se.servers {
 		if s != nil {
 			err = s.Listen()
 			if err != nil {
@@ -46,21 +54,21 @@ func serve(ctx context.Context, servers []Server, ready_cb func() error) (err er
 			}
 		}
 	}
+	return
+}
 
-	// We have all the network files we need now
-	// Make the sd state close the rest
-	sd.Cleanup()
+func (se serverEnsemble) Serve(ctx context.Context) (err error) {
 
 	dwg := new(sync.WaitGroup)
 
 	// Now start
-	for _, s := range servers {
-		startServer(ctx, dwg, s)
+	for _, s := range se.servers {
+		controlServer(actionServe, ctx, &err, dwg, s)
 	}
-	
+
 	// Notify that we are running
-	if ready_cb != nil {
-		nerr := ready_cb()
+	if se.readycb != nil {
+		nerr := se.readycb()
 		if nerr != nil {
 			Log(LvlERROR, fmt.Sprintf("Ready callback error: %s", nerr.Error()))
 		}
@@ -68,6 +76,60 @@ func serve(ctx context.Context, servers []Server, ready_cb func() error) (err er
 
 	// Wait for all servers to exit
 	dwg.Wait()
+	return
+}
+
+
+func (se serverEnsemble) Shutdown(ctx context.Context) (err error) {
+
+	dwg := new(sync.WaitGroup)
+
+	for i := range se.servers {
+		s := se.servers[len(se.servers)-i-1] // reverse order
+		controlServer(actionShutdown, ctx, &err, dwg, s)
+	}
+
+	dwg.Wait()
+	return
+
+}
+
+func (se serverEnsemble) Close() (err error) {
+	dwg := new(sync.WaitGroup)
+
+	for i := range se.servers {
+		s := se.servers[len(se.servers)-i-1] // reverse order
+		controlServer(actionClose, nil, &err, dwg, s)
+	}
+
+	dwg.Wait()
+	return
+}
+
+
+// serve implements the main logic of handling the list of running servers.
+// First let then Listen().
+// if no error, then start all by calling Serve()
+// Then call the ready callback and wait for them to exit
+func serve(ctx context.Context, server Server) (err error) {
+
+	if server == nil {
+		return errNoServers
+	}
+
+	err = server.Listen()
+	if err != nil {
+		return
+	}
+
+	// We have all the network files we need now
+	// Make the sd state close the rest
+	sd.Cleanup()
+
+	err = server.Serve(ctx)
+	if err != nil {
+		return
+	}
 
 	// This serve is finished. Allow a new to start with the FDs we used.
 	sd.Reset()
@@ -75,8 +137,16 @@ func serve(ctx context.Context, servers []Server, ready_cb func() error) (err er
 	return
 }
 
+const (
+	actionServe = "Serve"
+	actionShutdown = "Shutdown"
+	actionClose = "Close"
+)
+
 // Launch a specific server - does not block
-func startServer(ctx context.Context, done *sync.WaitGroup, s Server) {
+func controlServer(action string, ctx context.Context, firsterr *error, done *sync.WaitGroup, s Server) {
+
+	var errmu sync.Mutex
 
 	done.Add(1)
 
@@ -85,22 +155,38 @@ func startServer(ctx context.Context, done *sync.WaitGroup, s Server) {
 		defer done.Done()
 
 		var description string
-		description = "NOGET"
-		//if ds, ok := s.(Descripter); ok {
-		//	description = ds.Description()
-		//}
+		if ds, ok := s.(descriptor); ok {
+			description = ds.Description()
+		}
 
-		Log(LvlINFO, fmt.Sprintf("Starting (%s)", description))
+		Log(LvlINFO, fmt.Sprintf("%s (%s)", action, description))
 
-		// We sit here until "something" provokes Serve() to exit
-		// We have to log the error returned from the individual Serve()
-		err := s.Serve(ctx)
+		// We sit here until "something" provokes action to exit
+		// We have to log the error returned from the individual action
+		var err error
+		switch action {
+		case actionServe:
+			err = s.Serve(ctx)
+		case actionShutdown:
+			err = s.Shutdown(ctx)
+		case actionClose:
+			err = s.Close()
+		default:
+			Log(LvlCRIT, fmt.Sprintf("Action %s (%s) error: unknown action",
+				action, description))
+			return
+		}
 		if err != nil {
-			Log(LvlERROR, fmt.Sprintf("Server (%s) error: %s",
-				description,
+			Log(LvlERROR, fmt.Sprintf("%s (%s) error: %s",
+				action, description,
 				err.Error()))
+			errmu.Lock()
+			if *firsterr == nil {
+				*firsterr = err
+			}
+			errmu.Unlock()
 		} else {
-			Log(LvlINFO, fmt.Sprintf("Exited (%s)", description))
+			Log(LvlINFO, fmt.Sprintf("%s exited (%s)", action, description))
 		}
 	}()
 }
