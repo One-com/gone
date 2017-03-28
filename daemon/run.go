@@ -260,12 +260,7 @@ MainLoop:
 			srvmu.Unlock()
 			return
 		}
-		running_server := serverEnsemble{servers, readyCallback}
-		running_revision := revision
-		running_cleanups := cleanups
-
-		running_context := nextContext
-
+		
 		// Set up any control socket
 		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
 			cs = &ctrl.Server{
@@ -287,8 +282,27 @@ MainLoop:
 				}
 				close(csdone)
 			}()
+
+			// Append a last cleanup which closes the control socket:
+			cleanups = append(cleanups, func() error {
+				// Stop control socket
+				if cs != nil {
+					cs.Shutdown()
+					<-csdone
+					Log(LvlNOTICE, "Control socket shut down")
+				} else {
+					Log(LvlNOTICE, "No control socket")
+				}
+				return nil
+			})
 		}
 
+		running_server := serverEnsemble{servers, readyCallback}
+		running_revision := revision
+		running_cleanups := cleanups
+
+		running_context := nextContext
+		
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
@@ -302,9 +316,9 @@ MainLoop:
 		}
 
 		if cfg.syncReload {
-			recordShutdown(running_revision, running_server, running_cleanups, 0, cs, csdone)
+			recordShutdown(running_revision, running_server, running_cleanups, 0)
 		} else {
-			go recordShutdown(running_revision, running_server, running_cleanups, 0, cs, csdone)
+			go recordShutdown(running_revision, running_server, running_cleanups, 0)
 		}
 	} // end MainLoop
 
@@ -312,14 +326,14 @@ MainLoop:
 	if graceful_exit {
 		srvmu.Lock()
 		Log(LvlNOTICE, "Waiting for graceful shutdown")
-		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdown_timeout, cs, csdone)
+		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdown_timeout)
 		srvmu.Unlock()
 	}
 	close(eventch)
 	return
 }
 
-func recordShutdown(rev int, server Server, cleanups []CleanupFunc, timeout time.Duration, cs *ctrl.Server, csdone chan struct{}) {
+func recordShutdown(rev int, server Server, cleanups []CleanupFunc, timeout time.Duration) {
 
 	var (
 		ctx context.Context
@@ -350,15 +364,6 @@ func recordShutdown(rev int, server Server, cleanups []CleanupFunc, timeout time
 		}
 	}
 	Log(LvlNOTICE, fmt.Sprintf("All servers (rev=%d) shutdown", rev))
-
-	// Stop control socket
-	if cs != nil {
-		cs.Shutdown()
-		<-csdone
-		Log(LvlNOTICE, "Control socket shut down")
-	} else {
-		Log(LvlNOTICE, "No control socket")
-	}
 }
 
 // Reload tells Run() to instatiate new servers and continue serving with them.
