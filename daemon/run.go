@@ -333,7 +333,7 @@ MainLoop:
 	return
 }
 
-func recordShutdown(rev int, server Server, cleanups []CleanupFunc, timeout time.Duration) {
+func recordShutdown(rev int, server LingeringServer, cleanups []CleanupFunc, timeout time.Duration) {
 
 	var (
 		ctx context.Context

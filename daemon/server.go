@@ -13,11 +13,24 @@ import (
 // These objects will be single-use only with a lifetime:
 // Listen, Serve, Shutdown, - and possibly Close() if Shutdown exits non-nil
 type Server interface {
-	// Listen will
-	Listen() error
 	// Serve will start serving until the context is canceled at which
 	// point it will stop generating new activity and exit.
 	Serve(context.Context) error
+}
+
+// ListeningServer is a Server which wished to have its Listen() method called before Serve()
+type ListeningServer interface {
+	Server
+	// Listen will be called before Serve() is called to allow the server
+	// to prepare for serving. It doesn't need to actually do network listening.
+	// it's just an opportunity to get a pre-serve call.
+	Listen() error
+}
+
+// LingeringServer is a Server which potentially has background activity even after Serve() has exited.
+// This could be connections still open and processing request, even though the listeners have closed.
+type LingeringServer interface {
+	Server
 	// Shutdown will wait for all activity to stop until the context
 	// is canceled at which point it will exit with an error if activity has
 	// not stopped.
@@ -47,10 +60,12 @@ func (se serverEnsemble) Listen() (err error) {
 	// Prepare for run by letting each server Listen
 	for _, s := range se.servers {
 		if s != nil {
-			err = s.Listen()
-			if err != nil {
-				// TODO - what to do about already successful listeners.
-				return
+			if ls, ok := s.(ListeningServer); ok {
+				err = ls.Listen()
+				if err != nil {
+					// TODO - what to do about already successful listeners.
+					return
+				}
 			}
 		}
 	}
@@ -86,7 +101,9 @@ func (se serverEnsemble) Shutdown(ctx context.Context) (err error) {
 
 	for i := range se.servers {
 		s := se.servers[len(se.servers)-i-1] // reverse order
-		controlServer(actionShutdown, ctx, &err, dwg, s)
+		if ls, ok := s.(LingeringServer); ok {
+			controlServer(actionShutdown, ctx, &err, dwg, ls)
+		}
 	}
 
 	dwg.Wait()
@@ -99,7 +116,9 @@ func (se serverEnsemble) Close() (err error) {
 
 	for i := range se.servers {
 		s := se.servers[len(se.servers)-i-1] // reverse order
-		controlServer(actionClose, nil, &err, dwg, s)
+		if ls, ok := s.(LingeringServer); ok {
+			controlServer(actionClose, nil, &err, dwg, ls)
+		}
 	}
 
 	dwg.Wait()
@@ -111,7 +130,7 @@ func (se serverEnsemble) Close() (err error) {
 // First let then Listen().
 // if no error, then start all by calling Serve()
 // Then call the ready callback and wait for them to exit
-func serve(ctx context.Context, server Server) (err error) {
+func serve(ctx context.Context, server ListeningServer) (err error) {
 
 	if server == nil {
 		return errNoServers
@@ -168,9 +187,21 @@ func controlServer(action string, ctx context.Context, firsterr *error, done *sy
 		case actionServe:
 			err = s.Serve(ctx)
 		case actionShutdown:
-			err = s.Shutdown(ctx)
+			if ls, ok := s.(LingeringServer); ok {
+				err = ls.(LingeringServer).Shutdown(ctx)
+			} else {
+				// Unreachable
+				Log(LvlCRIT, fmt.Sprintf("Action %s (%s) error: illegal action",
+					action, description))
+			}
 		case actionClose:
-			err = s.Close()
+			if ls, ok := s.(LingeringServer); ok {
+				err = ls.(LingeringServer).Close()
+			} else {
+				// Unreachable
+				Log(LvlCRIT, fmt.Sprintf("Action %s (%s) error: illegal action",
+					action, description))
+			}
 		default:
 			Log(LvlCRIT, fmt.Sprintf("Action %s (%s) error: unknown action",
 				action, description))

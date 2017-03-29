@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os"
 	"syscall"
+	"time"
+	"context"
 )
 
 //----------------- The actual server ----------------------
@@ -44,6 +46,26 @@ func newHTTPServer(handler http.HandlerFunc) (s *gonehttp.Server) {
 	return s3
 }
 
+type trivialServer struct {}
+func (t *trivialServer) Serve(ctx context.Context) error {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+LOOP:
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("trivial tick")
+		case <-ctx.Done():
+			break LOOP
+		}
+	}
+	return nil
+}
+
+func (t *trivialServer) Description() string {
+	return "Trivial"
+}
+
 func loadConfig(cfg string) daemon.ConfigFunc {
 	var revision int
 	cf := daemon.ConfigFunc(
@@ -51,10 +73,11 @@ func loadConfig(cfg string) daemon.ConfigFunc {
 			revision++
 			log.Printf("Loading config. rev: %d", revision)
 
-			s = make([]daemon.Server, 1)
+			s = make([]daemon.Server, 2)
 			c = make([]daemon.CleanupFunc, 1)
 
 			s[0] = newHTTPServer(http.HandlerFunc(myHandlerFunc(cfg, revision)))
+			s[1] = &trivialServer{}
 
 			localRevision := revision
 			c[0] = func() error {
