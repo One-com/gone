@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"fmt"
 
-	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/http/rrwriter"
 
 	"unsafe"
@@ -64,7 +64,7 @@ func (h *logHandler) ToggleAccessLog(old, new io.Writer) {
 		h.writers = append(h.writers, new)
 
 		out := io.MultiWriter(h.writers...)
-		
+
 		//h.out.Store(out)
 		atomic.StorePointer(&h.out, unsafe.Pointer(&out))
 		return
@@ -81,7 +81,7 @@ func (h *logHandler) ToggleAccessLog(old, new io.Writer) {
 				continue
 			}
 			wn = new // put in the new
-			
+
 		} else {
 			// keep the old
 			wn = h.writers[i]
@@ -108,13 +108,13 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	var out unsafe.Pointer
 	out = atomic.LoadPointer(&h.out)
-	
+
 	if out != nil {
 
 		outw := *((*io.Writer)(out))
-		
+
 		recorder := rrwriter.MakeRecorder(w)
-	
+
 		t := time.Now()
 		pbuf := h.bufpool.Get().(*buffer)
 		logbuf := pbuf[:0]
@@ -127,8 +127,13 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			last := last_reported_accesslog_error.Load().(time.Time)
 			if t.Sub(last) > time.Minute {
-				log.CRIT("Error writing access log, supressing for a minute", "err", err)
-				last_reported_accesslog_error.Store(t)
+				server := req.Context().Value(http.ServerContextKey)
+				if s, ok := server.(*http.Server); ok {
+					if s.ErrorLog != nil {
+						s.ErrorLog.Print(fmt.Sprintf("Error writing access log, supressing for a minute: %s", err))
+						last_reported_accesslog_error.Store(t)
+					}
+				}
 			}
 		}
 		h.bufpool.Put(pbuf)
@@ -136,10 +141,10 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if h.af != nil {
 			h.af(recorder)
 		}
-		
+
 	} else {
 		if h.af != nil {
-			recorder := rrwriter.MakeRecorder(w)			
+			recorder := rrwriter.MakeRecorder(w)
 			h.handler.ServeHTTP(recorder, req)
 			h.af(recorder)
 		} else {
@@ -147,4 +152,3 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 }
-
