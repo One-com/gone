@@ -377,7 +377,6 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 		var cmdhelp bool // if true, don't run current command. Show its help instead.
 		var cmd string   // current command
 
-		// TODO
 		if tokens[0] == quitCommand {
 			sd.Forget(gonectrl)
 			sd.Forget(gonecmd)

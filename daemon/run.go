@@ -243,10 +243,6 @@ func Run(opts ...RunOption) (err error) {
 	// Wait here until event manager is ready with first config
 	<-first_config_load_done
 
-	// Control socket
-	var cs *ctrl.Server
-	var csdone chan struct{}
-
 MainLoop:
 	for {
 		srvmu.Lock()
@@ -263,14 +259,14 @@ MainLoop:
 		
 		// Set up any control socket
 		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
-			cs = &ctrl.Server{
+			cs := &ctrl.Server{
 				Addr:  cfg.ctrlSockPath,
 				ListenerFdName: cfg.ctrlSockName,
 				HelpCommand: "?",
 				QuitCommand: "q",
 				Logger: Log,
 			}
-			csdone = make(chan struct{})
+			csdone := make(chan struct{})
 			err = cs.Listen()
 			if err != nil {
 				Log(LvlCRIT, fmt.Sprintf("Failed listen on control socket: %s", err.Error()))
