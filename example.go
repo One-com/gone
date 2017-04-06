@@ -202,7 +202,7 @@ func (p *procCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args 
 		onSignalExit()
 	case "stop":
 		var timeout time.Duration
-		if args[1] != "" {
+		if len(args) > 1 && args[1] != "" {
 			var to int
 			to, err = strconv.Atoi(args[1])
 			if err != nil {
