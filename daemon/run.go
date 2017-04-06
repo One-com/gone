@@ -47,6 +47,7 @@ type runcfg struct {
 	readyCallbacks []func() error
 	ctrlSockPath   string
 	ctrlSockName   string
+	timeout        time.Duration
 }
 
 // RunOption change the behaviour of Run()
@@ -71,6 +72,12 @@ func ControlSocket(name, path string) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.ctrlSockPath = path
 		rc.ctrlSockName = name
+	})
+}
+
+func ShutdownTimeout(to time.Duration) RunOption {
+	return RunOption(func(rc *runcfg) {
+		rc.timeout = to
 	})
 }
 
@@ -168,6 +175,10 @@ func Run(opts ...RunOption) (err error) {
 	var graceful_exit bool // whether exit of Run() should wait for clean shutdown
 	var shutdown_timeout time.Duration // how long to wait for last generation servers to be completely done
 
+	if cfg.timeout != 0 {
+		shutdown_timeout = cfg.timeout
+	}
+
 	// We cannot serve the first run before the Event handler tells us configuration is done
 	//var first_mu sync.Mutex
 	first_config_load_done := make(chan struct{})
@@ -187,6 +198,7 @@ func Run(opts ...RunOption) (err error) {
 			case timeout := <-tostopch:
 				exit = true
 				shutdown_timeout = timeout
+				graceful_exit = true
 				nextCancel()
 			case graceful_exit = <-stopch:
 				exit = true
@@ -256,7 +268,7 @@ MainLoop:
 			srvmu.Unlock()
 			return
 		}
-		
+
 		// Set up any control socket
 		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
 			cs := &ctrl.Server{
@@ -298,7 +310,7 @@ MainLoop:
 		running_cleanups := cleanups
 
 		running_context := nextContext
-		
+
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
