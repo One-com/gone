@@ -337,7 +337,7 @@ func (f *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.T
 	*buf = append(*buf, f.prefix...) // add any custom prefix
 
 	if f.flag&(Lname) != 0 {
-		*buf = append(*buf, " ("...)
+		*buf = append(*buf, '(')
 		*buf = append(*buf, name...)
 		*buf = append(*buf, ") "...)
 	}

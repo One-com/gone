@@ -123,7 +123,7 @@ func ExampleSetPrintLevel() {
 
 	l.Print("ignoring level")
 	// Output:
-	// <5> (my/lib) ignoring level
+	// <5>(my/lib) ignoring level
 
 }
 
@@ -139,7 +139,7 @@ func ExampleWith() {
 
 	l3.ERROR("message")
 	// Output:
-	// <3> (my/lib) message more=data key=value
+	// <3>(my/lib) message more=data key=value
 
 }
 
@@ -153,7 +153,7 @@ func ExampleGetLogger() {
 
 	l3.NOTICE("notice")
 	// Output:
-	// <5> (my/lib/module) notice k=v
+	// <5>(my/lib/module) notice k=v
 }
 
 func ExampleHandler() {
@@ -165,7 +165,7 @@ func ExampleHandler() {
 	l.WARN("advarsel")
 	// Output:
 	// <3>PFX:fejl
-	// <4>PFX: (mylog) advarsel
+	// <4>PFX:(mylog) advarsel
 }
 
 // Test that Println() doesn't get k/v logging wrong
