@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	unix "syscall"
+	"fmt"
 )
 
 /*
@@ -110,6 +111,22 @@ func IsFifo(path string) FileTest {
 		ok = true
 		return
 	}
+}
+
+func listeningUnixSocketPath(fd int) (path string, ok bool) {
+	ok, err := isSocketInternal(uintptr(fd), 0, 1) // we want a listening UNIX socket of any sotype.
+	if !ok || err != nil {
+		return
+	}
+	var lsa unix.Sockaddr
+	lsa, err = unix.Getsockname(fd)
+	if err != nil {
+		return
+	}
+	if ua, ok := lsa.(*unix.SockaddrUnix); ok {
+		return ua.Name, true
+	}
+	return
 }
 
 // IsSocket is similar to libsystemd sd-daemon sd_is_socket()
@@ -236,7 +253,6 @@ func IsSocketUnix(sotype int, listening int, path *string) FileTest {
 func IsUNIXListener(addr *net.UnixAddr) FileTest {
 	return func(file *os.File) (ok bool, err error) {
 		fd := file.Fd()
-
 		var sotype int
 		sotype, err = net2sotypeUnix(addr.Network())
 		if err != nil {

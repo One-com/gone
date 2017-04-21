@@ -19,6 +19,11 @@ const (
 	sdListenFdStart    = 3
 )
 
+const (
+	envGoneFdInfo      = "GONE_FDINFO"  // flags:flags:flags - only "u" flag defined
+)
+
+
 var fdState *state
 
 // The library can manage either *os.File objects or
@@ -30,11 +35,15 @@ type filer interface {
 // To keep the systemd label of the file descriptor with the file
 type sdfile struct {
 	*os.File
-	name string // fd name from systemd. This is *not* the same as presented to Open()
+	name   string // fd name from systemd. This is *not* the same as presented to Open()
+	lock *os.File // a potential flock(2) for UNIX socket file listeners
 }
 
+// close the file descriptor, if it's an owned UNIX domain socket
+// unlink the socket file
 func (f *sdfile) close() error {
-	return f.File.Close()
+	err := f.File.Close()
+	return err
 }
 
 // state of file descriptors going in/out to systemd
@@ -172,6 +181,7 @@ func (s *state) inherit() error {
 		defer os.Unsetenv(envListenPid)
 		defer os.Unsetenv(envListenFds)
 		defer os.Unsetenv(envListenFdNames)
+		defer os.Unsetenv(envGoneFdInfo)
 
 		countStr := os.Getenv(envListenFds)
 		if countStr == "" {
@@ -199,7 +209,7 @@ func (s *state) inherit() error {
 
 		count, err := strconv.Atoi(countStr)
 		if err != nil {
-			retErr = fmt.Errorf("found invalid count value: %s=%s", envListenFds, countStr)
+			retErr = fmt.Errorf("Found invalid FD count in ENV: %s=%s", envListenFds, countStr)
 			return
 		}
 
@@ -210,23 +220,54 @@ func (s *state) inherit() error {
 			names = strings.Split(namesStr, ":")
 		}
 
+		// Find additional gone/sd specific info about FD's (ie: Do the work as lock for Unix socket files?)
+		var fdinfo []string
+		fdinfoStr := os.Getenv(envGoneFdInfo)
+		if fdinfoStr != "" {
+			fdinfo = strings.Split(fdinfoStr, ":")
+		}
+
 		// Store the result as *os.File with name
 		var nidx int
+		var count int
 		for fd := sdListenFdStart; fd < sdListenFdStart+count; fd++ {
+			var lock *os.File
+			var newfilename string
+			// first check if it's UNIX socket file lock
+			var listeningUnixSocket bool
+			if fdinfo != nil && fdinfo[nidx] == "u" {
+				if path, ok := listeningUnixSocketPath(fd+1); ok {
+					lock = os.NewFile(uintptr(fd), path + ".lock")
+					newfilename = path
+					unix.CloseOnExec(fd)
+				} else {
+					retErr = unix.Close(fd)
+				}
+				fd++
+				nidx++
+			}
+
 			var nm string
 			if names != nil {
 				nm = names[nidx]
 				s.names = append(s.names, nm)
 			}
-			nidx++
-			unix.CloseOnExec(fd)
 
-			file := os.NewFile(uintptr(fd), "fd:"+nm)
-			sdf := &sdfile{name: nm, File: file}
+			unix.CloseOnExec(fd) // unless this FD is explicitly re-exported, we close it on exec
+			if listeningUnixSocket {
+				// don't touch newfilename
+			} else {
+				newfilename = "fd:"+nm // Not sure if anyone relies on this being addrinfo?
+			}
+			file := os.NewFile(uintptr(fd), newfilename)
+			sdf := &sdfile{name: nm, File: file, lock: lock}
+
 			s.available = append(s.available, sdf)
+			nidx++
+			count++
 		}
-
-		s.count = nidx
+		// Make inherited FDs available (TODO: flocks counted?)
+		s.count = count
 	})
 	s.err = retErr
 	return retErr
@@ -249,6 +290,9 @@ func Forget(f interface{}) (err error) {
 		for i, file := range s.active {
 			if file != nil && file.name == str {
 				file.File.Close()
+				if file.lock != nil {
+					file.lock.Close()
+				}
 				s.active[i] = nil
 				delete(s.active, i)
 			}
@@ -257,6 +301,9 @@ func Forget(f interface{}) (err error) {
 		// Look up the object and close the file descriptor we have for it.
 		if file, ok := s.active[f]; ok {
 			file.File.Close()
+			if file.lock != nil {
+				file.lock.Close()
+			}
 			s.active[f] = nil
 			delete(s.active, f)
 		} else {
@@ -273,8 +320,16 @@ func Forget(f interface{}) (err error) {
 // If you want to stop managing the file descriptor and close it, call Forget() on the name, or provided
 // the same object as was exported.
 func Export(sdname string, f interface{}) (err error) {
+	err = exportInternal(sdname, f, nil)
+	return
+}
+
+func exportInternal(sdname string, f interface{}, lock *os.File) (err error) {
+
 	s := fdState
 	var file *os.File
+
+	// Make sure we keep a dup(2) of the FD
 	switch tf := f.(type) {
 	case *os.File:
 		var newfd int
@@ -300,11 +355,12 @@ func Export(sdname string, f interface{}) (err error) {
 		return
 	}
 
+	// Store the resulting *os.File in the active map
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if _, already := s.active[f]; !already {
-		s.active[f] = &sdfile{File: file, name: sdname}
+		s.active[f] = &sdfile{File: file, name: sdname, lock: lock}
 	} else {
 		// This probably shouldn't happen, since it would mean we had gotten an
 		// already used fd from dup()
@@ -370,5 +426,7 @@ func FileWith(sdname string, tests ...FileTest) (rfile *os.File, rname string, e
 // occurring while inheriting them.
 // Calling Reset() will reset these values too.
 func ListenFdsWithNames() (count int, names []string, err error) {
+	fdState.mutex.Lock()
+	defer fdState.mutex.Unlock()
 	return fdState.count, fdState.names, fdState.err
 }

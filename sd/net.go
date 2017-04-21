@@ -5,9 +5,19 @@ import (
 	"net"
 	"os"
 	unix "syscall"
+	"fmt"
 )
 
-var listenerBacklog = maxListenerBacklog()
+var ErrNoSuchFdName = errors.New("No file with the requested name and no requested address")
+
+var unixSocketUnlinkPolicy int
+
+const (
+	unixSocketUnlinkPolicyNone int = iota
+	unixSocketUnlinkPolicyAlways
+	unixSocketUnlinkPolicySocket
+	unixSocketUnlinkPolicyFlock
+)
 
 // InheritNamedListener returns a net.Listener and its systemd name passing
 // the tests (and name criteria) provided.
@@ -174,13 +184,25 @@ func NamedListenUnix(name, nett string, laddr *net.UnixAddr) (l *net.UnixListene
 		return
 	}
 
+	if laddr == nil {
+		err = ErrNoSuchFdName
+		return
+	}
+
+	lock, err := maybeUnlinkUnixSocketFile(laddr)
+	if err != nil {
+		// do nothing, let the bind fail
+	}
+	fmt.Println("fresh", lock)
 	// make a fresh listener
-	l, err = noUnlinkUnixListener(nett, laddr)
+	l, err = net.ListenUnix(nett, laddr)
 	if err != nil {
 		return
 	}
-	err = Export(name, l)
+	l.SetUnlinkOnClose(false) /// we never do this. Leave it to unlink before bind
+	err = exportInternal(name, l, lock)
 	if err != nil {
+		l.Close()
 		return
 	}
 	return
@@ -198,172 +220,32 @@ func NamedListenUDP(name, net string, laddr *net.UDPAddr) (*net.UDPConn, error) 
 	return nil, nil
 }
 
-/*===================================================================================*/
-// Code to handle the sad fact the the standard library does unlink on Unix listeners
-// when they are closed. We need to obtain a UNIX listener via net.FileListener
-// which make netFDs not doing that.
-// So a lot of duplicated code.
-
-// We have take this over from the stdlib, since the net package thinks it's a good idea to
-// call unlink() in Close() for UnixListener !?!?!?
-func noUnlinkUnixListener(nett string, laddr *net.UnixAddr) (l *net.UnixListener, err error) {
-	var sotype int
-
-	sotype, err = net2sotypeUnix(nett)
-	if err != nil {
-		return
-	}
-
-	var fd int
-	fd, err = socket(nett, unix.AF_UNIX, sotype, 0, false, laddr)
-	if err != nil {
-		return
-	}
-
-	var lis net.Listener
-	file := os.NewFile(uintptr(fd), "")
-	lis, err = net.FileListener(file)
-	file.Close()
-	if err != nil {
-		return
-	}
-
-	var ok bool
-	if l, ok = lis.(*net.UnixListener); !ok {
-		err = errors.New("Could not create no-unlink UNIX listener")
-	}
-
-	return
-}
-
-func socket(net string, family, sotype, proto int, ipv6only bool, laddr *net.UnixAddr) (fd int, err error) {
-	if laddr == nil {
-		err = errors.New("Can't make UNIX listener with nil address")
-		return
-	}
-
-	var s int
-	s, err = unix.Socket(family, sotype|unix.SOCK_NONBLOCK|unix.SOCK_CLOEXEC, proto)
-	if err != nil {
-		return
-	}
-	if err = setDefaultSockopts(s, family, sotype, ipv6only); err != nil {
-		unix.Close(s)
-		return
-	}
-
-	// This function makes a network file descriptor for the
-	// following applications:
-	//
-	// - An endpoint holder that opens a passive stream
-	//   connection, known as a stream listener
-	//
-	// - An endpoint holder that opens a destination-unspecific
-	//   datagram connection, known as a datagram listener
-	//
-	// - An endpoint holder that opens an active stream or a
-	//   destination-specific datagram connection, known as a
-	//   dialer
-	//
-	// - An endpoint holder that opens the other connection, such
-	//   as talking to the protocol stack inside the kernel
-	//
-	// For stream and datagram listeners, they will only require
-	// named sockets, so we can assume that it's just a request
-	// from stream or datagram listeners when laddr is not nil but
-	// raddr is nil. Otherwise we assume it's just for dialers or
-	// the other connection holders.
-
-	switch sotype {
-	case unix.SOCK_STREAM, unix.SOCK_SEQPACKET:
-		if err = listenStream(s, laddr, listenerBacklog); err != nil {
-			unix.Close(s)
+func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
+	var stat unix.Stat_t
+	name := addr.Name
+	if name[0] != '@' && name[0] != '\x00' {
+		fmt.Println("name"+ name)
+		lock, err = os.OpenFile(name+".lock", os.O_RDONLY|os.O_CREATE, 0700)
+		if err != nil {
 			return
 		}
-	case unix.SOCK_DGRAM:
-		if err = listenDatagram(s, laddr); err != nil {
-			unix.Close(s)
-			return
-		}
-	}
-	fd = s
-	return
-}
-
-func listenStream(fd int, laddr *net.UnixAddr, backlog int) error {
-	if err := setDefaultListenerSockopts(fd); err != nil {
-		return err
-	}
-	lsa := &unix.SockaddrUnix{Name: laddr.Name}
-
-	if err := unix.Bind(fd, lsa); err != nil {
-		// The bind() error might be due to us not having unlinked the file
-		// when we last stopped using it.
-		// But we can't know when the last us is, since a server should bother
-		// about whether it created the socket it self or got it from the ENV/systemd
-		// So, ... assume here that the reason we are here at all is that there was
-		// no fitting UNIX listener socket in the ENV, so if the file is still here
-		// it's a stale file which should be unlinked before binding again.
-		// But do some basics tests that you don't just unlink anything.
-		var stat unix.Stat_t
-		var e2 error
-		e2 = unix.Stat(lsa.Name, &stat)
-		if e2 == nil {
-			if stat.Mode&unix.S_IFMT == unix.S_IFSOCK {
-				// Try unlink it
-				e2 = unix.Unlink(lsa.Name)
-				if e2 == nil {
-					// Try again
-					err = unix.Bind(fd, lsa)
+		// try aquire lock
+		err = unix.Flock(int(lock.Fd()), unix.LOCK_EX | unix.LOCK_NB)
+		if err == nil {
+			fmt.Println("locked")
+			err = unix.Stat(name, &stat)
+			if err == nil {
+				if stat.Mode&unix.S_IFMT == unix.S_IFSOCK {
+					err = unix.Unlink(name)
+				}
+			} else {
+				if err == unix.ENOENT {
+					err = nil // we have locked, but there was no socket file anyway
 				}
 			}
-		}
-		if e2 != nil {
-			err = os.NewSyscallError("bind", e2)
-		}
-		if err != nil {
-			return os.NewSyscallError("bind", err)
+		} else {
+			fmt.Println("error"+err.Error())
 		}
 	}
-	if err := unix.Listen(fd, backlog); err != nil {
-		return os.NewSyscallError("listen", err)
-	}
-	return nil
-}
-
-func listenDatagram(fd int, laddr *net.UnixAddr) error {
-	lsa := &unix.SockaddrUnix{Name: laddr.Name}
-
-	if err := unix.Bind(fd, lsa); err != nil {
-		return os.NewSyscallError("bind", err)
-	}
-	return nil
-}
-
-func setDefaultListenerSockopts(s int) error {
-	// Allow reuse of recently-used addresses.
-	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1))
-}
-
-func setDefaultSockopts(s, family, sotype int, ipv6only bool) error {
-	if family == unix.AF_INET6 && sotype != unix.SOCK_RAW {
-		// Allow both IP versions even if the OS default
-		// is otherwise.  Note that some operating systems
-		// never admit this option.
-		unix.SetsockoptInt(s, unix.IPPROTO_IPV6, unix.IPV6_V6ONLY, boolint(ipv6only))
-	}
-	// Allow broadcast.
-	return os.NewSyscallError("setsockopt", unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_BROADCAST, 1))
-}
-
-// Boolean to int.
-func boolint(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-func maxListenerBacklog() int {
-	return unix.SOMAXCONN
+	return
 }

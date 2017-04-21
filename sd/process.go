@@ -3,10 +3,12 @@ package sd
 import (
 	"fmt"
 	"os"
+
 	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
+	"sync"
 )
 
 const (
@@ -18,12 +20,16 @@ const (
 // it at startup.
 var originalWD, _ = os.Getwd()
 
+var startProcMu sync.Mutex
+
 // StartProcess starts a new process passing it the open files. It
 // starts a new process using the same environment and
 // arguments as when it was originally started.
 // This allows for a newly deployed binary to be started. It returns the pid of the newly started
 // process when successful.
 func StartProcess(env []string) (int, error) {
+	startProcMu.Lock()
+	defer startProcMu.Unlock()
 
 	s := fdState
 
@@ -40,23 +46,34 @@ func StartProcess(env []string) (int, error) {
 	for _, v := range os.Environ() {
 		if !(strings.HasPrefix(v, envListenFds+"=") ||
 			strings.HasPrefix(v, envListenFdNames+"=") ||
-			strings.HasPrefix(v, envListenPid+"=")) {
+			strings.HasPrefix(v, envListenPid+"=") ||
+			strings.HasPrefix(v, envGoneFdInfo+"=")) {
 			env = append(env, v)
 		}
 	}
 	env = append(env, fmt.Sprintf("%s=%d", envListenFds, len(files)))
 
+	// Put info about FDs into ENV for new process
 	var expFiles []*os.File
 	envNames := envListenFdNames + "="
+	envInfo  := envGoneFdInfo + "="
 	for i, sdf := range files {
-		expFiles = append(expFiles, sdf.File)
 		if i != 0 {
 			envNames += ":"
+			envInfo += ":"
 		}
+		// if there's a lock  add the lock too, but mark it as a lock
+		// for the next FD
+		if sdf.lock != nil {
+			expFiles = append(expFiles, sdf.lock)
+			envInfo += "u:"
+			envNames += ":"
+		}
+		expFiles = append(expFiles, sdf.File)
 		envNames += sdf.name
 	}
-
 	env = append(env, envNames)
+	env = append(env, envInfo)
 
 	allFiles := append([]*os.File{os.Stdin, os.Stdout, os.Stderr}, expFiles...)
 	process, err := os.StartProcess(argv0, os.Args, &os.ProcAttr{
@@ -67,6 +84,7 @@ func StartProcess(env []string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return process.Pid, nil
 }
 

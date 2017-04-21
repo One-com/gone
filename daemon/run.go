@@ -196,9 +196,9 @@ func Run(opts ...RunOption) (err error) {
 		for {
 			select {
 			case timeout := <-tostopch:
-				exit = true
 				shutdown_timeout = timeout
 				graceful_exit = true
+				exit = true
 				nextCancel()
 			case graceful_exit = <-stopch:
 				exit = true
