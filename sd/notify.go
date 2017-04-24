@@ -18,6 +18,10 @@ const (
 )
 
 const (
+	goneUnixSocketLockFdName = "GONEUXSCKLCK"
+)
+
+const (
 	// StatusNone - Don't send a STATUS
 	StatusNone = iota
 	// StatusReady - Tell systemd status is READY
@@ -136,26 +140,52 @@ func Notify(flags int, lines ...string) (err error) {
 	state := strings.Join(lines, "\n")
 
 	var oob []byte
-	if flags&NotifyWithFds != 0 {
-		var expFiles []int
-		var fdNames string
-		for i, sdf := range fdState.activeFiles() {
-			expFiles = append(expFiles, int(sdf.File.Fd()))
-			if i != 0 {
-				fdNames += ":"
-			}
-			fdNames += sdf.name
-		}
+	if flags&NotifyWithFds == 0 {
+		_, _, err = conn.WriteMsgUnix([]byte(state), oob, socketAddr)
+		return
+	}
 
+	// Do it with FDs
+	// First send the message with any non-named FDs - then a message
+	// for all the named ones - then a message for the locks
+	
+	var name2Fd  map[string][]int
+	// make a map of all names needed to be sent -> slice of int
+	for _, sdf := range fdState.activeFiles() {
+		name := sdf.name
+		slice := name2Fd[name]
+		slice = append(slice, int(sdf.File.Fd()))
+		name2Fd[name] = slice
+		if sdf.lock != nil {
+			slice := name2Fd[goneUnixSocketLockFdName]
+			slice = append(slice, int(sdf.lock.Fd()))
+			name2Fd[goneUnixSocketLockFdName] = slice
+		}
+	}
+
+	// first add the empty named
+	if expFiles, ok := name2Fd[""]; ok {
+		delete(name2Fd, "")
 		if state != "" {
 			state += "\n"
 		}
-		state += "FDSTORE=1\nFDNAME=" + fdNames
-
+		state += "FDSTORE=1"
 		oob = unix.UnixRights(expFiles...)
 	}
 
 	_, _, err = conn.WriteMsgUnix([]byte(state), oob, socketAddr)
-	return
+	if err != nil {
+		return
+	}
 
+	// Send the rest of the names, one message for each name
+	for name, expFiles := range name2Fd {
+		state = "FDSTORE=1\nFDNAME=" + name
+		oob = unix.UnixRights(expFiles...)
+		_, _, err = conn.WriteMsgUnix([]byte(state), oob, socketAddr)
+		if err != nil {
+			return
+		}
+	}
+	return
 }

@@ -229,7 +229,7 @@ func (s *state) inherit() error {
 
 		// Store the result as *os.File with name
 		var nidx int
-		var count int
+		var sum int
 		for fd := sdListenFdStart; fd < sdListenFdStart+count; fd++ {
 			var lock *os.File
 			var newfilename string
@@ -264,10 +264,10 @@ func (s *state) inherit() error {
 
 			s.available = append(s.available, sdf)
 			nidx++
-			count++
+			sum++
 		}
 		// Make inherited FDs available (TODO: flocks counted?)
-		s.count = count
+		s.count = sum
 	})
 	s.err = retErr
 	return retErr
