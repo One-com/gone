@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	unix "syscall"
-	"fmt"
 	"sync/atomic"
 )
 
@@ -229,7 +228,7 @@ func NamedListenUnix(name, nett string, laddr *net.UnixAddr) (l *net.UnixListene
 	if err != nil {
 		// do nothing, let the bind fail
 	}
-	fmt.Println("fresh", lock)
+
 	// make a fresh listener
 	l, err = net.ListenUnix(nett, laddr)
 	if err != nil {
