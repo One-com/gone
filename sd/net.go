@@ -6,18 +6,54 @@ import (
 	"os"
 	unix "syscall"
 	"fmt"
+	"sync/atomic"
 )
 
 var ErrNoSuchFdName = errors.New("No file with the requested name and no requested address")
 
-var unixSocketUnlinkPolicy int
+var unixSocketUnlinkPolicy uint32 = UnixSocketUnlinkPolicySocket
 
 const (
-	unixSocketUnlinkPolicyNone int = iota
-	unixSocketUnlinkPolicyAlways
-	unixSocketUnlinkPolicySocket
-	unixSocketUnlinkPolicyFlock
+	// Never unlink socket files
+	UnixSocketUnlinkPolicyNone uint32 = iota
+	// Always unlink socket files
+	UnixSocketUnlinkPolicyAlways
+	// Stat the file to ensure it's a UNIX socket before unlinking
+	UnixSocketUnlinkPolicySocket
+	// Take a flock(2) lock on a socket.lock file before unlinking
+	UnixSocketUnlinkPolicyFlock
 )
+
+// SetUnixSocketUnlinkPolicy decides how the sd library will deal with stale UNIX socket file when you create
+// a new listening Unix socket which is not created from the environment the parent process (maybe systemd)
+// made for your process.
+// About UNIX domain sockets:
+// UNIX sockets don't work exactly like TCP/UDP sockets. The kernel doesn't reclaim the "address" (ie. the socket file)
+// when the last file descriptor is closed. The file still hangs around - and will prevent a new bind(2) to that
+// adddress/path.
+// Go has before version 1.7 solved this by doing unlink(2) on the file when you call Close() on a net.UnixListener.
+// This doesn't play well with systemd socket activation though (or any graceful restart system transfering file descriptors).
+// Systemd doesn't expect the file to disappear and removing it will prevent clients for connecting the the listener.
+// See: https://github.com/golang/go/issues/13877
+// Go 1.7 introduced some magic where listeners created with FileListener() would not do this.
+// Go 1.8 allow the user to control this with SetUnlinkOnClose().
+// The unix(7) manpage says: "Binding to a socket with a filename creates a socket in the filesystem that must be deleted by the caller when it is no longer needed".
+// However... 
+// This may not be easy to guarantee... a process can crash before it removes the file. As evidence the same unix(7) man page
+// exemplifies this with code where it calls unlink(2) just before bind(2) "In case the program exited inadvertently on the last run,
+// remove the socket."
+// Always unlinking the socket file might not be the thing you want either. There might be another instance of your daemon using it.
+// Then unlinking would "steal" the address from the other process. This might be what you want - but you would have a small window
+// without a socket file where clients would get rejected.
+// So... the sd library will not try to unlink on close. In fact, it uses SetUnlinkOnClose(false) to never do this for any UNIX listener.
+// Instead the sd library encourages "UnlinkBeforeBind". In other words: When it needs to create a new socket file it employs a UnixSocketUnlinkPolicy.
+// This policy can be none (do not unlinK) or always unlink. Or it can be "test if the socket file is a socket file first".
+// None of these will however "just work" in any scenario. Therefore there's "use flock(2)" policy to use advisory file locking to ensure
+// the socket file is only removed when there's no other process using it.
+// The default is UnixSocketUnlinkPolicySocket. You need to change this ( like, in you init() ) to use the flock(2) mechanism.
+func SetUnixSocketUnlinkPolicy(policy uint32) {
+	atomic.StoreUint32(&unixSocketUnlinkPolicy, policy)
+}
 
 // InheritNamedListener returns a net.Listener and its systemd name passing
 // the tests (and name criteria) provided.
@@ -221,30 +257,48 @@ func NamedListenUDP(name, net string, laddr *net.UDPAddr) (*net.UDPConn, error) 
 }
 
 func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
-	var stat unix.Stat_t
+	
 	name := addr.Name
+
+	policy := atomic.LoadUint32(&unixSocketUnlinkPolicy)
+
+	if policy == UnixSocketUnlinkPolicyNone {
+		return
+	}
+	
 	if name[0] != '@' && name[0] != '\x00' {
-		fmt.Println("name"+ name)
-		lock, err = os.OpenFile(name+".lock", os.O_RDONLY|os.O_CREATE, 0700)
-		if err != nil {
-			return
-		}
-		// try aquire lock
-		err = unix.Flock(int(lock.Fd()), unix.LOCK_EX | unix.LOCK_NB)
-		if err == nil {
-			fmt.Println("locked")
-			err = unix.Stat(name, &stat)
-			if err == nil {
-				if stat.Mode&unix.S_IFMT == unix.S_IFSOCK {
-					err = unix.Unlink(name)
-				}
-			} else {
-				if err == unix.ENOENT {
-					err = nil // we have locked, but there was no socket file anyway
-				}
+		switch policy {
+		case UnixSocketUnlinkPolicyAlways:
+			err = unix.Unlink(name)
+		case UnixSocketUnlinkPolicySocket:
+			err = _statBeforeUnlink(name)
+		case UnixSocketUnlinkPolicyFlock:
+		
+			lock, err = os.OpenFile(name+".lock", os.O_RDONLY|os.O_CREATE, 0700)
+			if err != nil {
+				return
 			}
-		} else {
-			fmt.Println("error"+err.Error())
+			// try aquire lock
+			err = unix.Flock(int(lock.Fd()), unix.LOCK_EX | unix.LOCK_NB)
+			if err == nil {
+				err = _statBeforeUnlink(name)
+			}
+		}
+	}
+	return
+}
+
+func _statBeforeUnlink(name string) (err error){
+
+	var stat unix.Stat_t
+	err = unix.Stat(name, &stat)
+	if err == nil {
+		if stat.Mode&unix.S_IFMT == unix.S_IFSOCK {
+			err = unix.Unlink(name)
+		}
+	} else {
+		if err == unix.ENOENT {
+			err = nil // we have locked, but there was no socket file anyway
 		}
 	}
 	return
