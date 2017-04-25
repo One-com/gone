@@ -120,6 +120,9 @@ func listeningUnixSocketPath(fd int) (path string, ok bool) {
 	var lsa unix.Sockaddr
 	lsa, err = unix.Getsockname(fd)
 	if err != nil {
+		if err == unix.ENOTSOCK {
+			err = nil
+		}
 		return
 	}
 	if ua, ok := lsa.(*unix.SockaddrUnix); ok {

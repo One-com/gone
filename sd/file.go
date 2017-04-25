@@ -230,6 +230,7 @@ func (s *state) inherit() error {
 		// Store the result as *os.File with name
 		var nidx int
 		var sum int
+		var locksFromFdstore []int
 		for fd := sdListenFdStart; fd < sdListenFdStart+count; fd++ {
 			var lock *os.File
 			var newfilename string
@@ -243,14 +244,20 @@ func (s *state) inherit() error {
 				} else {
 					retErr = unix.Close(fd)
 				}
-				fd++
+				fd++ // advance to the next fd which this lock is protecting
 				nidx++
 			}
-
-			var nm string
+			// then check if it's a lock from FDSTORE
+			var nm string // name to make this FD available under
 			if names != nil {
-				nm = names[nidx]
-				s.names = append(s.names, nm)
+				if names[nidx] == goneUnixSocketLockFdName {
+					locksFromFdstore = append(locksFromFdstore, fd)
+					continue
+				} else {
+					// normal name - save it
+					nm = names[nidx]
+					s.names = append(s.names, nm)
+				}
 			}
 
 			unix.CloseOnExec(fd) // unless this FD is explicitly re-exported, we close it on exec
@@ -265,6 +272,37 @@ func (s *state) inherit() error {
 			s.available = append(s.available, sdf)
 			nidx++
 			sum++
+		}
+		// hook fdstore locks up on the socket fds
+		if locksFromFdstore != nil {
+			for _, sdf := range s.available {
+				if path, ok := listeningUnixSocketPath(int(sdf.Fd())); ok {
+					if sdf.lock == nil { // find any lock
+						var st unix.Stat_t
+						lockpath := path + ".lock"
+						err = unix.Stat(lockpath, &st)
+						if err != nil {
+							if err == unix.ENOENT {
+								continue // there's no lock for this socket
+							}
+							retErr = err
+							return
+						}
+						for _, lockfd := range locksFromFdstore {
+							var stl unix.Stat_t
+							err = unix.Fstat(lockfd, &stl)
+							if err != nil {
+								retErr = err
+								return
+							}
+							if st.Dev == stl.Dev && st.Ino == stl.Ino {
+								// this is the lock for this socket. put it in
+								sdf.lock = os.NewFile(uintptr(lockfd), lockpath)
+							}
+						}
+					} // else we have unreachable code.
+				}
+			}
 		}
 		// Make inherited FDs available (TODO: flocks counted?)
 		s.count = sum
