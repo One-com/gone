@@ -37,7 +37,7 @@ const (
 // Go 1.7 introduced some magic where listeners created with FileListener() would not do this.
 // Go 1.8 allow the user to control this with SetUnlinkOnClose().
 // The unix(7) manpage says: "Binding to a socket with a filename creates a socket in the filesystem that must be deleted by the caller when it is no longer needed".
-// However... 
+// However...
 // This may not be easy to guarantee... a process can crash before it removes the file. As evidence the same unix(7) man page
 // exemplifies this with code where it calls unlink(2) just before bind(2) "In case the program exited inadvertently on the last run,
 // remove the socket."
@@ -193,8 +193,44 @@ func ListenUnixgram(nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
 // NamedListenUnixgram is like ListenUnixgram, but will require any used inherited
 // file descriptor to have the given systemd socket name
 // The returned conn will be Export'ed by the sd library. Call Forget() to undo the export.
-func NamedListenUnixgram(name, nett string, laddr *net.UnixAddr) (*net.UnixConn, error) {
-	return nil, nil
+func NamedListenUnixgram(name, nett string, laddr *net.UnixAddr) (l *net.UnixConn, err error) {
+
+	var pathp *string
+	if laddr != nil {
+		pathp = &laddr.Name
+	}
+
+	var il net.PacketConn
+	il, _, err = InheritNamedPacketConn(name, IsSocketUnix(unix.SOCK_DGRAM, 0, pathp))
+	if il != nil || err != nil {
+		if err == nil {
+			l = il.(*net.UnixConn)
+		}
+		return
+	}
+
+	if laddr == nil {
+		err = ErrNoSuchFdName
+		return
+	}
+
+	lock, err := maybeUnlinkUnixSocketFile(laddr)
+	if err != nil {
+		// do nothing, let the bind fail
+	}
+
+	// make a fresh listener
+	l, err = net.ListenUnixgram(nett, laddr)
+	if err != nil {
+		return
+	}
+	err = exportInternal(name, l, lock)
+	if err != nil {
+		l.Close()
+		return
+	}
+
+	return
 }
 
 // ListenUnix is like net.ListenUnix and will return a normal *net.UnixListener.
@@ -256,7 +292,7 @@ func NamedListenUDP(name, net string, laddr *net.UDPAddr) (*net.UDPConn, error) 
 }
 
 func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
-	
+
 	name := addr.Name
 
 	policy := atomic.LoadUint32(&unixSocketUnlinkPolicy)
@@ -264,7 +300,7 @@ func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
 	if policy == UnixSocketUnlinkPolicyNone {
 		return
 	}
-	
+
 	if name[0] != '@' && name[0] != '\x00' {
 		switch policy {
 		case UnixSocketUnlinkPolicyAlways:
@@ -272,7 +308,7 @@ func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
 		case UnixSocketUnlinkPolicySocket:
 			err = _statBeforeUnlink(name)
 		case UnixSocketUnlinkPolicyFlock:
-		
+
 			lock, err = os.OpenFile(name+".lock", os.O_RDONLY|os.O_CREATE, 0700)
 			if err != nil {
 				return
