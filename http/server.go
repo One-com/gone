@@ -66,7 +66,7 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 
 	listeners := s.listeners
 	if len(listeners) == 0 {
-		return errors.New("No HTTP listenrs for " + s.Name)
+		return errors.New("No HTTP listeners for " + s.Name)
 	}
 
 	var wg sync.WaitGroup
