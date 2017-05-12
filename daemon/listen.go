@@ -29,8 +29,6 @@ type ListenerSpec struct {
 
 	// InheritOnly set to true requires the Listener to be inherited via
 	// the environment and there will not be created a fresh Listener.
-	// Setting InheritOnly true will also disable port 80 as default port
-	// and let the Serve listen on any inherited TCP socket it gets
 	InheritOnly bool
 
 	// PrepareListener provides a callback to do last minute modifications of

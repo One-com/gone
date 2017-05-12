@@ -7,6 +7,7 @@ import (
 	"sync"
 	"context"
 	"crypto/tls"
+	"errors"
 
 	"github.com/One-com/gone/netutil"
 )
@@ -30,9 +31,7 @@ func (s *Server) Listen() (err error) {
 	saddr := s.Addr
 	var listeners []net.Listener
 
-	spec := s.Listeners
-
-	if spec == nil {
+	if s.Listeners == nil {
 
 		if saddr == "" {
 			if s.TLSConfig == nil {
@@ -66,6 +65,9 @@ func (s *Server) Listen() (err error) {
 func (s *Server) Serve(ctx context.Context) (err error) {
 
 	listeners := s.listeners
+	if len(listeners) == 0 {
+		return errors.New("No HTTP listenrs for " + s.Name)
+	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex // protect the err return value
