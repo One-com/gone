@@ -366,6 +366,10 @@ func recordShutdown(rev int, server LingeringServer, cleanups []CleanupFunc, tim
 	// All servers done - either voluntarily or the hard way.
 	// Run cleanups
 	for _, f := range cleanups {
+		if f == nil {
+			Log(LvlWARN, "Not running nil cleanup")
+			continue
+		}
 		e := f()
 		if e != nil {
 			Log(LvlWARN, fmt.Sprintf("Cleanup failed: %s", e.Error()))
