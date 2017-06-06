@@ -91,8 +91,11 @@ func (e Event) FileInfo() (string, int) {
 	return e.file, e.line
 }
 
-// To support stdlib Output() function which gives user control of calldepth.
-func (l *Logger) calldepthEvent(level syslog.Priority, calldepth int, msg string) *event {
+// The primary event constructor. Creates a new log event.
+// The event is timestamped if needed
+// Code info file/line is recorded if needed
+// KV data is gathered from any context parents.
+func (l *Logger) newEvent(calldepth int, level syslog.Priority, msg string, data []interface{}) *event {
 
 	e := getPoolEvent(level, l.name, msg)
 
@@ -103,53 +106,6 @@ func (l *Logger) calldepthEvent(level syslog.Priority, calldepth int, msg string
 	}
 	if dc {
 		_, file, line, ok := runtime.Caller(calldepth + 2)
-		if ok {
-			e.file = file
-			e.line = line
-			e.fok = true
-		}
-	}
-
-	if l.cparent == nil && l.data != nil {
-		// Traverse contexts gather KV data
-		var i int
-		// tally up the kv length
-		parent := l
-		for parent != nil {
-			i += len(parent.data)
-			parent = parent.cparent
-		}
-		newdata := make([]interface{}, i)
-		// Now collect data
-		parent = l
-		i = 0
-		for parent != nil {
-			for _, k_or_v := range parent.data {
-				newdata[i] = k_or_v
-				i++
-			}
-			parent = parent.cparent
-		}
-		e.Data = newdata
-	}
-	return e
-}
-
-// The primary event constructor. Creates a new log event.
-// The event is timestamped if needed
-// Code info file/line is recorded if needed
-// KV data is gathered from any context parents.
-func (l *Logger) newEvent(level syslog.Priority, msg string, data []interface{}) *event {
-
-	e := getPoolEvent(level, l.name, msg)
-
-	dt, dc := l.cfg.doing()
-	if dt {
-		e.time = time.Now()
-		e.tok = true
-	}
-	if dc {
-		_, file, line, ok := runtime.Caller(3)
 		if ok {
 			e.file = file
 			e.line = line

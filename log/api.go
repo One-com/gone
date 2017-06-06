@@ -12,37 +12,42 @@ func (l *Logger) Log(level syslog.Priority, msg string, kv ...interface{}) (err 
 	return
 }
 
+// LogFromCaller is like Log() but lets you offset the calldepth used to compute CodeInfo (file/line) from stack info, the same way as the stdlib log.Output() function does.
+func (l *Logger) LogFromCaller(calldepth int, level syslog.Priority, msg string, kv ...interface{}) error {
+	return l.logFromCaller(calldepth, level, msg, kv...)
+}
+
 //---
 
 // Internal level loggers (to return from *ok() functions)
 // These are functionally equivalent to log() and output(), but bound to a specific level.
 func (l *Logger) alert(msg string, kv ...interface{}) {
 	level := syslog.LOG_ALERT
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) crit(msg string, kv ...interface{}) {
 	level := syslog.LOG_CRIT
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) error(msg string, kv ...interface{}) {
 	level := syslog.LOG_ERROR
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) warn(msg string, kv ...interface{}) {
 	level := syslog.LOG_WARN
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) notice(msg string, kv ...interface{}) {
 	level := syslog.LOG_NOTICE
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) info(msg string, kv ...interface{}) {
 	level := syslog.LOG_INFO
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 func (l *Logger) debug(msg string, kv ...interface{}) {
 	level := syslog.LOG_DEBUG
-	l.h.Log(l.newEvent(level, msg, normalize(kv)))
+	l.h.Log(l.newEvent(1, level, msg, normalize(kv)))
 }
 
 //---

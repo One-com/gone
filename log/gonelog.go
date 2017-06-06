@@ -112,9 +112,9 @@ func newLogger(name string) (l *Logger) {
 func (l *Logger) log(level syslog.Priority, msg string, kv ...interface{}) error {
 	var e *event
 	if kv == nil {
-		e = l.newEvent(level, msg, nil)
+		e = l.newEvent(1, level, msg, nil)
 	} else {
-		e = l.newEvent(level, msg, normalize(kv))
+		e = l.newEvent(1, level, msg, normalize(kv))
 	}
 	return l.h.Log(e)
 }
@@ -124,7 +124,18 @@ func (l *Logger) log(level syslog.Priority, msg string, kv ...interface{}) error
 // for all calls to let newEvent() know how to do code info.
 // Provides support for stdlib Output() compatibility.
 func (l *Logger) output(calldepth int, s string) error {
-	return l.h.Log(l.calldepthEvent(l.DefaultLevel(), calldepth, s))
+	return l.h.Log(l.newEvent(calldepth, l.DefaultLevel(), s, nil))
+}
+
+// Do log() but with calldepth and with output()
+func (l *Logger) logFromCaller(calldepth int, level syslog.Priority, msg string, kv ...interface{}) error {
+	var e *event
+	if kv == nil {
+		e = l.newEvent(calldepth, level, msg, nil)
+	} else {
+		e = l.newEvent(calldepth, level, msg, normalize(kv))
+	}
+	return l.h.Log(e)
 }
 
 // SetHandler atomically swaps in a different root of the Handler tree
