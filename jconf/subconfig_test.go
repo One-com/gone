@@ -7,6 +7,14 @@ import (
 	"os"
 )
 
+type FullConfig struct {
+	M *AppConfig
+	O *AppConfigOpt
+	X *OptionalSubConfig
+}
+
+type simpleConfig map[string]string
+
 type AppConfig struct {
 	A string
 	S *MandatorySubConfig
@@ -28,6 +36,13 @@ func initSubModule(cfg SubConfig) (err error) {
 	err = cfg.ParseInto(&jc)
 	return
 }
+
+func initSimpleSubModule(cfg SubConfig) (err error) {
+	var jc interface{}
+	err = cfg.ParseInto(&jc)
+	return
+}
+
 
 func initSubModuleNoPointer(cfg SubConfig) (err error) {
 	var jc ModuleConfig
@@ -121,12 +136,31 @@ func ExampleSubConfigNoPointer() {
 
 //------------------------------------------------------------------
 
+var fullconfdata = `{
+    "M": {
+        "A": "app",
+        "S": {
+            "B": "xy"
+        }
+    },
+    "O": {
+        "A": "foo",
+        "S": {
+            "B": "bar"
+        }
+    },
+    "X": { // a string/string map
+        "key": "val"
+    }
+}
+`
+
 func ExampleFull() {
 
 	// main application conf object
-	cfg := &AppConfig{}
+	var cfg *FullConfig
 
-	buf := bytes.NewBufferString(confdata2)
+	buf := bytes.NewBufferString(fullconfdata)
 
 	err := ParseInto(buf, &cfg)
 	if err != nil {
@@ -134,11 +168,28 @@ func ExampleFull() {
 	}
 
 	// Let our submodule parse its own config
-	err = initSubModule(cfg.S)
+	msub := cfg.M
+	err = initSubModule(msub.S)
 	if err != nil {
 		log.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
 
+	// also for the non existing optional one
+	osub := cfg.O
+	if osub != nil {
+		err = initSubModule(osub.S)
+		if err != nil {
+			log.Fatalf("Module Config parsing failed: %s", err.Error())
+		}
+	}
+
+	// and the kv map
+	err = initSimpleSubModule(cfg.X)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+	
+	
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -153,10 +204,21 @@ func ExampleFull() {
 
 	// Output:
 	// {
-	//     "A": "app",
-	//     "S": {
-	//         "B": "x // y"
-	//     }
+        //     "M": {
+        //         "A": "app",
+        //         "S": {
+        //             "B": "xy"
+        //         }
+        //     },
+	//     "O": {
+        //         "A": "foo",
+	//         "S": {
+	//             "B": "bar"
+        //         }
+        //     },
+	//     "X": {
+	//         "key": "val"
+        //     }
 	// }
 }
 
