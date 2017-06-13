@@ -49,7 +49,7 @@ func init() {
 }
 
 type runcfg struct {
-	legacycfgfunc ConfigureFunc
+	legacycfgfunc  ConfigureFunc
 	cfgfunc        ConfigFunc
 	syncReload     bool
 	readyCallbacks []func() error
@@ -61,8 +61,9 @@ type runcfg struct {
 // RunOption change the behaviour of Run()
 type RunOption func(*runcfg)
 
-// InstantiateServers gives Run() a ConfigFunc. This is the only mandatory RunOption
-// (except you when you use the legacy InstantiateServers() option)
+// Configurator gives Run() a ConfigFunc. This is the only mandatory RunOption
+// (except you when you use the legacy InstantiateServers() option and supply a
+// deprecated "ConfigureFunc" instead)
 func Configurator(f ConfigFunc) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.cfgfunc = f
@@ -179,7 +180,7 @@ func Run(opts ...RunOption) (err error) {
 	}
 
 	var exit bool                     // set true when Run() should break the main loop
-	var graceful_exit bool            // whether exit of Run() should wait for clean shutdown
+	var gracefulExit bool             // whether exit of Run() should wait for clean shutdown
 	var shutdownTimeout time.Duration // how long to wait for last generation servers to be completely done
 
 	if cfg.timeout != 0 {
@@ -204,10 +205,10 @@ func Run(opts ...RunOption) (err error) {
 			select {
 			case timeout := <-tostopch:
 				shutdownTimeout = timeout
-				graceful_exit = true
+				gracefulExit = true
 				exit = true
 				nextCancel()
-			case graceful_exit = <-stopch:
+			case gracefulExit = <-stopch:
 				exit = true
 				nextCancel()
 			// Wait for reload signal
@@ -339,7 +340,7 @@ MainLoop:
 	} // end MainLoop
 
 	Log(LvlNOTICE, "Exit mainloop")
-	if graceful_exit {
+	if gracefulExit {
 		srvmu.Lock()
 		Log(LvlNOTICE, "Waiting for graceful shutdown")
 		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdownTimeout)
@@ -405,6 +406,8 @@ func Exit(graceful bool) {
 	}
 }
 
+// ExitGracefulWithTimeout is like Exit(true), but has a timeout to fall back to
+// the effect of Exit(false)
 func ExitGracefulWithTimeout(to time.Duration) {
 	select {
 	case tostopch <- to: // buffered by 1 exit operation at a time

@@ -77,9 +77,8 @@ func (c *channelPool) Get() (*PoolConn, bool, error) {
 					return nil, false, ErrClosed
 				}
 				return c.wrapConn(conn), false, nil
-			} else {
-				return nil, false, errors.New("Connection pool full")
 			}
+			return nil, false, errors.New("Connection pool full")
 		}
 		conn, err := c.factory()
 		if err != nil {

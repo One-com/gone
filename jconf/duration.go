@@ -11,6 +11,7 @@ type Duration struct {
 	time.Duration
 }
 
+// UnmarshalJSON implements the stdlib encoding/json.Unmarshaler interface for Duration
 func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 	if b[0] == '"' {
 		sd := string(b[1 : len(b)-1])
@@ -25,6 +26,7 @@ func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 	return
 }
 
+// MarshalJSON implements the stdlib encoding/json.Marshaler interface for Duration
 func (d Duration) MarshalJSON() (b []byte, err error) {
 	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
 }

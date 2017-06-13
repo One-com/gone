@@ -12,7 +12,7 @@ import (
 // required inherited socket to listen on is not found.
 var ErrNoListener = errors.New("No Matching Listener")
 
-// ListenSpec describes the properties of a listener so it can be instantiated
+// ListenerSpec describes the properties of a listener so it can be instantiated
 // either via the "sd" library or directly from stdlib package "net"
 type ListenerSpec struct {
 	Net string

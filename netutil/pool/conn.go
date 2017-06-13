@@ -2,19 +2,19 @@ package pool
 
 import "net"
 
-// poolConn is a wrapper around net.Conn to modify the the behavior of
+// PoolConn is a wrapper around net.Conn to modify the the behavior of
 // net.Conn's Close() method.
 type PoolConn struct {
 	net.Conn
 	pool *channelPool
 }
 
-// Release() puts the net.Conn back to the pool instead of closing it.
+// Release puts the net.Conn back to the pool instead of closing it.
 func (pc PoolConn) Release() error {
 	return pc.pool.putConn(pc.Conn)
 }
 
-// Close() closes the net.Conn and discards it as broken.
+// Close closes the net.Conn and discards it as broken.
 func (pc PoolConn) Close() error {
 	return pc.pool.closeConn(pc.Conn)
 }

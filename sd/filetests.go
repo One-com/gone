@@ -112,7 +112,7 @@ func IsFifo(path string) FileTest {
 	}
 }
 
-func listeningUnixSocketPath(fd int) (path string, err error, ok bool) {
+func listeningUnixSocketPath(fd int) (path string, ok bool, err error) {
 	ok, err = isSocketInternal(uintptr(fd), 0, 1) // we want a listening UNIX socket of any sotype.
 	if !ok || err != nil {
 		return

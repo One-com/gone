@@ -231,6 +231,7 @@ func (s *Server) Serve() (err error) {
 	}
 }
 
+// Shutdown implements the srv.Server interface for the control socket server.
 func (s *Server) Shutdown() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -446,7 +447,7 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 	}
 
 	// Cancel any still pending command
-	if ctx != nil {
+	if cancel != nil {
 		// Then cancel the current invocation go-routine to be sure it's done.
 		cancel()
 	}

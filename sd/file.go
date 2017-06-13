@@ -234,7 +234,7 @@ func (s *state) inherit() error {
 			// first check if it's UNIX socket file lock
 			var listeningUnixSocket bool
 			if fdinfo != nil && fdinfo[nidx] == "u" {
-				if path, err, ok := listeningUnixSocketPath(fd + 1); err != nil && ok {
+				if path, ok, err := listeningUnixSocketPath(fd + 1); err != nil && ok {
 					lock = os.NewFile(uintptr(fd), path+".lock")
 					newfilename = path
 					unix.CloseOnExec(fd)
@@ -277,7 +277,7 @@ func (s *state) inherit() error {
 		// hook fdstore locks up on the socket fds
 		if locksFromFdstore != nil {
 			for _, sdf := range s.available {
-				if path, err, ok := listeningUnixSocketPath(int(sdf.Fd())); err != nil && ok {
+				if path, ok, err := listeningUnixSocketPath(int(sdf.Fd())); err != nil && ok {
 					if sdf.lock == nil { // find any lock
 						var st unix.Stat_t
 						lockpath := path + ".lock"

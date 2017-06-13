@@ -19,18 +19,22 @@ type Numeric64 struct {
 	value uint64
 }
 
+// FromUint64 creates a Numeric64 from a uint64
 func FromUint64(v uint64) Numeric64 {
 	return Numeric64{Type: Uint64, value: v}
 }
 
+// FromInt64 creates Numeric64 from an int64
 func FromInt64(v int64) Numeric64 {
 	return Numeric64{Type: Int64, value: uint64(v)}
 }
 
+// FromFloat64 creates a Numeric64 from a Float64
 func FromFloat64(v float64) Numeric64 {
 	return Numeric64{Type: Float64, value: math.Float64bits(v)}
 }
 
+// Float64FromUint64 creates a Float64 Numeric64 from a uint64 value.
 func Float64FromUint64(v uint64) Numeric64 {
 	return Numeric64{Type: Float64, value: v}
 }

@@ -142,7 +142,7 @@ func (g *GaugeFloat64) Name() string {
 //	return MeterGauge
 //}
 
-// Update updates the gauge's value.
+// Set updates the gauge's value.
 func (g *GaugeFloat64) Set(v float64) {
 	atomic.StoreUint64(&g.val, math.Float64bits(v))
 
@@ -153,6 +153,7 @@ func (g *GaugeFloat64) Value() float64 {
 	return math.Float64frombits(atomic.LoadUint64(&g.val))
 }
 
+// Flush sends the current gauge value to the Sink
 func (g *GaugeFloat64) Flush(s Sink) {
 	val := atomic.LoadUint64(&g.val)
 	n := num64.Float64FromUint64(val)
