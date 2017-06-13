@@ -13,10 +13,10 @@ import (
 	"unsafe"
 )
 
-var last_reported_accesslog_error atomic.Value
+var lastReportedAccesslogError atomic.Value
 
 func init() {
-	last_reported_accesslog_error.Store(time.Unix(0, 0))
+	lastReportedAccesslogError.Store(time.Unix(0, 0))
 }
 
 type buffer [256]byte // temporary byte array for creating log lines.
@@ -125,13 +125,13 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		err := writeLog(outw, logbuf)
 		if err != nil {
-			last := last_reported_accesslog_error.Load().(time.Time)
+			last := lastReportedAccesslogError.Load().(time.Time)
 			if t.Sub(last) > time.Minute {
 				server := req.Context().Value(http.ServerContextKey)
 				if s, ok := server.(*http.Server); ok {
 					if s.ErrorLog != nil {
-						s.ErrorLog.Print(fmt.Sprintf("Error writing access log, supressing for a minute: %s", err))
-						last_reported_accesslog_error.Store(t)
+						s.ErrorLog.Print(fmt.Sprintf("Error writing access log, suppressing for a minute: %s", err))
+						lastReportedAccesslogError.Store(t)
 					}
 				}
 			}

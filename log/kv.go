@@ -55,7 +55,7 @@ func normalize(kv []interface{}) []interface{} {
 	return kv
 }
 
-// KV is a Logable
+// LogValues implment Logable for KV
 func (kv KV) LogValues() KeyValues {
 	arr := make([]interface{}, len(kv)*2)
 

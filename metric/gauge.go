@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 )
 
-// A client maintained gauge which is only sampled regulary without information loss
+// A client maintained gauge which is only sampled regularly without information loss
 // wrt. the absolute value.
 // Can be used as a client side maintained counter too.
 
@@ -83,7 +83,7 @@ func (g *GaugeUint64) Dec(i int64) {
 	atomic.AddUint64(&g.val, ^uint64(i-1))
 }
 
-// NewgaugeInt64 creates a int64 Gauge. Can be used as a go-metric client side gauge or counter
+// NewGaugeInt64 creates a int64 Gauge. Can be used as a go-metric client side gauge or counter
 func (c *Client) NewGaugeInt64(name string, opts ...MOption) *GaugeInt64 {
 	g := &GaugeInt64{name: name}
 	c.register(g, opts...)

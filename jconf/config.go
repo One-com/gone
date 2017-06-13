@@ -17,8 +17,7 @@ type SyntaxError struct {
 
 func (e *SyntaxError) Error() string { return e.help }
 
-/*
- ParseInto loads a JSON stream into a destination object, which is a datatype
+/* ParseInto loads a JSON stream into a destination object, which is a datatype
  defined by the caller.
  It will ignore values in the file it can't fit into dst. On a parsing error, it
  returns an error with the line and the location in the input data.

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// A histogram is a series of int64 events all sent to the server
+// Histogram is a series of int64 events all sent to the server
 type Histogram eventStream
 
 // NewHistogram creates a new persistent Histogram metric object with the default

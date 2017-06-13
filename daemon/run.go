@@ -20,9 +20,14 @@ type CleanupFunc func() error
 
 // ConfigureFunc is a function returning srv.Server to run and the CleanupFuncs to call
 // when they have completely shut down.
+// This function is deprecated. Use ConfigFunc instead and implement your servers as
+// daemon.Server instead of srv.Server - if possible.
 // The Run() function needs a ConfigureFunc to instantiate the Servers to serve.
 type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 
+// ConfigFunc is a function returning Servers and Cleanups for Run() to run.
+// Run() will call this every time it needs to configure it self on start and on reload.
+// Run() will need either a ConfigFunc or the (deprecated) ConfigureFunc.
 type ConfigFunc func() ([]Server, []CleanupFunc, error)
 
 var (
@@ -44,7 +49,7 @@ func init() {
 }
 
 type runcfg struct {
-	legacy_cfgfunc ConfigureFunc
+	legacycfgfunc ConfigureFunc
 	cfgfunc        ConfigFunc
 	syncReload     bool
 	readyCallbacks []func() error
@@ -67,7 +72,7 @@ func Configurator(f ConfigFunc) RunOption {
 // InstantiateServers gives Run() a ConfigureFunc. This is the only mandatory RunOption
 func InstantiateServers(f ConfigureFunc) RunOption {
 	return RunOption(func(rc *runcfg) {
-		rc.legacy_cfgfunc = f
+		rc.legacycfgfunc = f
 	})
 }
 
@@ -158,7 +163,7 @@ func Run(opts ...RunOption) (err error) {
 		o(cfg)
 	}
 
-	if cfg.cfgfunc == nil && cfg.legacy_cfgfunc == nil {
+	if cfg.cfgfunc == nil && cfg.legacycfgfunc == nil {
 		return errors.New("Don't know how to configure servers")
 	}
 
@@ -215,7 +220,7 @@ func Run(opts ...RunOption) (err error) {
 					newServers, newCleanups, err = cfg.cfgfunc()
 				} else {
 					// Wrap all legacy servers in compatibility wrapper
-					s, c, e := cfg.legacy_cfgfunc()
+					s, c, e := cfg.legacycfgfunc()
 					for _, l := range s {
 						newServers = append(newServers, &wrapper{Server: l})
 					}
@@ -247,6 +252,7 @@ func Run(opts ...RunOption) (err error) {
 				firstConfigDoneOnce.Do(func() { close(firstConfigLoadDone) })
 
 			case <-eventch:
+				nextCancel()
 				break EVENTLOOP
 			}
 		}

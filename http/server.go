@@ -120,6 +120,8 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 	return
 }
 
+// Description implements a default textual description for a Server objects
+// describing what it's up to.
 func (s *Server) Description() string {
 
 	var listeners string

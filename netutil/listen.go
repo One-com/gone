@@ -1,4 +1,4 @@
-// Package listen only defines interfaces for objects which can return listeners.
+// Package netutil only defines interfaces for objects which can return listeners.
 package netutil
 
 import (

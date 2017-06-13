@@ -31,7 +31,7 @@ const (
 // when the last file descriptor is closed. The file still hangs around - and will prevent a new bind(2) to that
 // adddress/path.
 // Go has before version 1.7 solved this by doing unlink(2) on the file when you call Close() on a net.UnixListener.
-// This doesn't play well with systemd socket activation though (or any graceful restart system transfering file descriptors).
+// This doesn't play well with systemd socket activation though (or any graceful restart system transferring file descriptors).
 // Systemd doesn't expect the file to disappear and removing it will prevent clients for connecting the the listener.
 // See: https://github.com/golang/go/issues/13877
 // Go 1.7 introduced some magic where listeners created with FileListener() would not do this.
@@ -313,7 +313,7 @@ func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
 			if err != nil {
 				return
 			}
-			// try aquire lock
+			// try acquire lock
 			err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB)
 			if err == nil {
 				err = _statBeforeUnlink(name)

@@ -6,7 +6,7 @@ import (
 	"reflect"
 )
 
-// Action is a function called when an OS signal is recieved.
+// Action is a function called when an OS signal is received.
 type Action func()
 
 // Mappings map OS signals to functions

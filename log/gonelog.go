@@ -106,7 +106,7 @@ func newLogger(name string) (l *Logger) {
 	return
 }
 
-// Unconditionaly logs an event
+// Unconditionally logs an event
 // Some logging goes through here to keep the same number of stackframes
 // for all calls to let newEvent() know how to do code info
 func (l *Logger) log(level syslog.Priority, msg string, kv ...interface{}) error {
@@ -119,7 +119,7 @@ func (l *Logger) log(level syslog.Priority, msg string, kv ...interface{}) error
 	return l.h.Log(e)
 }
 
-// Unconditionaly logs an event
+// Unconditionally logs an event
 // Some logging goes through here to keep the same number of stackframes
 // for all calls to let newEvent() know how to do code info.
 // Provides support for stdlib Output() compatibility.
@@ -149,7 +149,7 @@ func (l *Logger) SetHandler(h Handler) {
 // Supplied HandlerOptions must be compatible with the current Handler, or the Handler
 // will/(should) reject it and treat it as a No-Op.
 // If the attached Handler does not support Cloning or HandlerOptions and/or you are
-// using a more complext Handler hierarchy, you should probably create the new Handler
+// using a more complex Handler hierarchy, you should probably create the new Handler
 // Manually and use SetHandler()
 func (l *Logger) ApplyHandlerOptions(opt ...HandlerOption) {
 	l.h.ApplyHandlerOptions(opt...)

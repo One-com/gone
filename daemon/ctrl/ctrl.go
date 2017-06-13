@@ -374,6 +374,9 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 			sd.Forget(gonectrl)
 			sd.Forget(gonecmd)
 			cmdwg.Wait() // Don't exit until the current executing command has gotten the message.
+			if cancel != nil {
+				cancel()
+			}
 			return
 		}
 

@@ -16,9 +16,9 @@ import (
 	"net/http"
 )
 
-// MakeRecorder returns a RecordingResponseWriter whic wraps around the
+// MakeRecorder returns a RecordingResponseWriter which wraps around the
 // provided http.ResponseWriter.
-// After the reponse has been written, you can get Size() and Status()
+// After the response has been written, you can get Size() and Status()
 func MakeRecorder(w http.ResponseWriter) RecordingResponseWriter {
 	var logger RecordingResponseWriter = &responseRecorder{w: w}
 	if _, ok := w.(http.Hijacker); ok {

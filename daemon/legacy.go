@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -95,7 +94,7 @@ func (w *wrapper) Close() error {
 	case <-w.done:
 	default:
 		close(w.closed)
-		return errors.New(fmt.Sprintf("Can't close  srv.Server"))
+		return fmt.Errorf("Can't close  srv.Server")
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ func (f *sdfile) isMatching(tests ...FileTest) (ok bool, err error) {
 
 //--------------------------------------------------------------------
 
-func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err error) {
+func isSocketInternal(fd uintptr, sotype int, wantListening int) (ok bool, err error) {
 	var stat unix.Stat_t
 	err = unix.Fstat(int(fd), &stat)
 	if err != nil {
@@ -59,7 +59,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 
 	}
 
-	if want_listening >= 0 {
+	if wantListening >= 0 {
 		var val int
 		// Test listening
 		val, err = unix.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_ACCEPTCONN)
@@ -67,7 +67,7 @@ func isSocketInternal(fd uintptr, sotype int, want_listening int) (ok bool, err 
 			return
 		}
 		is := val != 0
-		want := want_listening > 0
+		want := wantListening > 0
 		if is != want {
 			return
 		}
@@ -112,8 +112,8 @@ func IsFifo(path string) FileTest {
 	}
 }
 
-func listeningUnixSocketPath(fd int) (path string, ok bool) {
-	ok, err := isSocketInternal(uintptr(fd), 0, 1) // we want a listening UNIX socket of any sotype.
+func listeningUnixSocketPath(fd int) (path string, err error, ok bool) {
+	ok, err = isSocketInternal(uintptr(fd), 0, 1) // we want a listening UNIX socket of any sotype.
 	if !ok || err != nil {
 		return
 	}
@@ -126,7 +126,7 @@ func listeningUnixSocketPath(fd int) (path string, ok bool) {
 		return
 	}
 	if ua, ok := lsa.(*unix.SockaddrUnix); ok {
-		return ua.Name, true
+		path = ua.Name
 	}
 	return
 }
