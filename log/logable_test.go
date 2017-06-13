@@ -17,7 +17,7 @@ func (o *MyObj) LogValues() log.KeyValues {
 
 func ExampleLogable() {
 
-	obj := &MyObj{"foo","bar"}
+	obj := &MyObj{"foo", "bar"}
 
 	var b bytes.Buffer
 	l := log.New(&b, "", 0)

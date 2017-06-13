@@ -20,9 +20,8 @@ const (
 )
 
 const (
-	envGoneFdInfo      = "GONE_FDINFO"  // flags:flags:flags - only "u" flag defined
+	envGoneFdInfo = "GONE_FDINFO" // flags:flags:flags - only "u" flag defined
 )
-
 
 var fdState *state
 
@@ -35,7 +34,7 @@ type filer interface {
 // To keep the systemd label of the file descriptor with the file
 type sdfile struct {
 	*os.File
-	name   string // fd name from systemd. This is *not* the same as presented to Open()
+	name string   // fd name from systemd. This is *not* the same as presented to Open()
 	lock *os.File // a potential flock(2) for UNIX socket file listeners
 }
 
@@ -115,7 +114,6 @@ func _availablefds() (ret []uintptr) {
 	return
 }
 
-
 // Cleanup closes all inherited file descriptors which have not been Exported
 func Cleanup() {
 	fdState.cleanup()
@@ -129,8 +127,7 @@ func (s *state) cleanup() {
 	s._cleanupLocked()
 }
 
-
-func (s* state) _cleanupLocked() {
+func (s *state) _cleanupLocked() {
 	for _, f := range s.available {
 		if f != nil {
 			f.close()
@@ -237,8 +234,8 @@ func (s *state) inherit() error {
 			// first check if it's UNIX socket file lock
 			var listeningUnixSocket bool
 			if fdinfo != nil && fdinfo[nidx] == "u" {
-				if path, ok := listeningUnixSocketPath(fd+1); ok {
-					lock = os.NewFile(uintptr(fd), path + ".lock")
+				if path, ok := listeningUnixSocketPath(fd + 1); ok {
+					lock = os.NewFile(uintptr(fd), path+".lock")
 					newfilename = path
 					unix.CloseOnExec(fd)
 				} else {
@@ -264,7 +261,7 @@ func (s *state) inherit() error {
 			if listeningUnixSocket {
 				// don't touch newfilename
 			} else {
-				newfilename = "fd:"+nm // Not sure if anyone relies on this being addrinfo?
+				newfilename = "fd:" + nm // Not sure if anyone relies on this being addrinfo?
 			}
 			file := os.NewFile(uintptr(fd), newfilename)
 			sdf := &sdfile{name: nm, File: file, lock: lock}

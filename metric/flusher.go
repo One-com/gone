@@ -1,9 +1,9 @@
 package metric
 
 import (
+	"github.com/One-com/gone/metric/num64"
 	"sync"
 	"time"
-	"github.com/One-com/gone/metric/num64"
 )
 
 // This file is a shared implementation of two types of flushers: static/fixed or dynamic

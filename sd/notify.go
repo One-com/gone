@@ -148,8 +148,8 @@ func Notify(flags int, lines ...string) (err error) {
 	// Do it with FDs
 	// First send the message with any non-named FDs - then a message
 	// for all the named ones - then a message for the locks
-	
-	var name2Fd  map[string][]int
+
+	var name2Fd map[string][]int
 	// make a map of all names needed to be sent -> slice of int
 	for _, sdf := range fdState.activeFiles() {
 		name := sdf.name

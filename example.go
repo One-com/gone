@@ -1,22 +1,22 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/One-com/gone/daemon"
 	"github.com/One-com/gone/daemon/ctrl"
-	"github.com/One-com/gone/signals"
 	gonehttp "github.com/One-com/gone/http"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/sd"
+	"github.com/One-com/gone/signals"
 	"io"
 	stdlog "log"
 	"net/http"
 	"os"
+	"strconv"
 	"syscall"
 	"time"
-	"context"
-	"strconv"
 )
 
 //----------------- The actual server ----------------------
@@ -40,15 +40,16 @@ func newHTTPServer(handler http.HandlerFunc) (s *gonehttp.Server) {
 	}
 
 	s3 := &gonehttp.Server{
-		Name: "Example",
-		Server: s1,
+		Name:      "Example",
+		Server:    s1,
 		Listeners: daemon.ListenerGroup{daemon.ListenerSpec{Addr: ":4321"}},
 	}
 	// Now a gone/http/goneserv.Server, expecting to be called upon to Listen()
 	return s3
 }
 
-type trivialServer struct {}
+type trivialServer struct{}
+
 func (t *trivialServer) Serve(ctx context.Context) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -93,7 +94,6 @@ func loadConfig(cfg string) daemon.ConfigFunc {
 
 //----------------- Signal handling ----------------------
 
-
 func onSignalExit() {
 	log.Println("Signal Exit")
 	daemon.Exit(false)
@@ -130,19 +130,19 @@ func serverLogFunc(level int, message string) {
 	log.Log(syslog.Priority(level), message)
 }
 
-var procControl      = &procCommand{}
+var procControl = &procCommand{}
 
 func init() {
 
 	/* Setup signalling */
 
 	handledSignals := signals.Mappings{
-		syscall.SIGINT  : onSignalExit,
-		syscall.SIGTERM : onSignalExitGraceful,
-		syscall.SIGHUP  : onSignalReload,
-		syscall.SIGUSR2 : onSignalRespawn,
-		syscall.SIGTTIN : onSignalIncLogLevel,
-		syscall.SIGTTOU : onSignalDecLogLevel,
+		syscall.SIGINT:  onSignalExit,
+		syscall.SIGTERM: onSignalExitGraceful,
+		syscall.SIGHUP:  onSignalReload,
+		syscall.SIGUSR2: onSignalRespawn,
+		syscall.SIGTTIN: onSignalIncLogLevel,
+		syscall.SIGTTOU: onSignalDecLogLevel,
 	}
 
 	log.SetLevel(syslog.LOG_DEBUG)
@@ -164,7 +164,7 @@ func main() {
 	runoptions := []daemon.RunOption{
 		daemon.Configurator(configureFunc),
 		daemon.ControlSocket("", "ctrl.sock"),
-		daemon.ShutdownTimeout(time.Duration(4*time.Second)),
+		daemon.ShutdownTimeout(time.Duration(4 * time.Second)),
 		daemon.SdNotifyOnReady(true, "Ready and serving"),
 		daemon.SignalParentOnReady(),
 	}
@@ -181,7 +181,7 @@ func main() {
 // ---------------------------------------------------------------
 // A simple control socket command controlling the daemon process
 
-type procCommand struct {}
+type procCommand struct{}
 
 func (p *procCommand) ShortUsage() (syntax, comment string) {
 	syntax = "[reload|respawn|kill|stop <timeout seconds>]"
@@ -193,7 +193,7 @@ func (p *procCommand) Usage(cmd string, w io.Writer) {
 	fmt.Fprintln(w, cmd, "control the process")
 }
 
-func (p *procCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error ) {
+func (p *procCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error) {
 	cmd = args[0]
 	switch cmd {
 	case "reload":

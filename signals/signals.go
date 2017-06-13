@@ -12,7 +12,6 @@ type Action func()
 // Mappings map OS signals to functions
 type Mappings map[os.Signal]Action
 
-
 // Allocate a 1-buffered channel for each signal and do a select
 // over all channels - has to use reflect for dynamic numbers of select cases.
 func signalHandler(mappings Mappings) {
@@ -21,7 +20,7 @@ func signalHandler(mappings Mappings) {
 	actions := make([]Action, len(mappings))
 
 	var idx = 0
-	for sig , action := range mappings {
+	for sig, action := range mappings {
 		sigch := make(chan os.Signal, 1)
 
 		cases[idx].Dir = reflect.SelectRecv
@@ -34,12 +33,11 @@ func signalHandler(mappings Mappings) {
 	}
 
 	for {
-		chosen, _ , _ := reflect.Select(cases)
+		chosen, _, _ := reflect.Select(cases)
 		f := actions[chosen]
 		f()
 	}
 }
-
 
 // RunSignalHandler spawns a go-routine which will call the provided Actions
 // when receiving the corresponding signals.

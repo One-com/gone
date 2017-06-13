@@ -3,7 +3,7 @@
 // connections which fail to show activity.
 //
 // It supports net.Conn objects directly and if they are wrapped in *tls.Conn
-// 
+//
 package reaper
 
 import (

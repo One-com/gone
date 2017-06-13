@@ -1,19 +1,19 @@
 package ctrl
 
 import (
-	"fmt"
-	"net"
 	"bufio"
-	"os"
 	"bytes"
+	"context"
+	"fmt"
+	"github.com/One-com/gone/daemon/srv"
+	"github.com/One-com/gone/sd"
 	"io"
 	"io/ioutil"
-	"github.com/One-com/gone/sd"
-	"github.com/One-com/gone/daemon/srv"
-	"sync"
-	"context"
-	"strings"
+	"net"
+	"os"
 	"path"
+	"strings"
+	"sync"
 	//"encoding/hex"
 	unix "syscall"
 )
@@ -38,10 +38,9 @@ type Command interface {
 }
 
 var (
-	cmdmu       sync.Mutex
-	commands    map[string]Command
+	cmdmu    sync.Mutex
+	commands map[string]Command
 )
-
 
 func init() {
 	commands = make(map[string]Command)
@@ -76,13 +75,13 @@ type Server struct {
 	// The command to cause the server to close a connection.
 	QuitCommand string
 
-	l  net.Listener
+	l net.Listener
 
 	wg sync.WaitGroup
- 	// connections which need to be served
- 	conns []persistentConn
+	// connections which need to be served
+	conns []persistentConn
 
-	mu sync.Mutex
+	mu       sync.Mutex
 	doneChan chan struct{}
 
 	ctx       context.Context
@@ -92,15 +91,12 @@ type Server struct {
 	Logger srv.LoggerFunc
 }
 
-
 func (s *Server) getDoneChan() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	return s.getDoneChanLocked()
 }
-
-
 
 func (s *Server) getDoneChanLocked() chan struct{} {
 
@@ -111,7 +107,6 @@ func (s *Server) getDoneChanLocked() chan struct{} {
 
 	return s.doneChan
 }
-
 
 func (s *Server) closeDoneChanLocked() {
 
@@ -127,7 +122,7 @@ func (s *Server) closeDoneChanLocked() {
 
 // Description implement gone/daemon/srv.Descripter interface.
 func (s *Server) Description() string {
-        return fmt.Sprintf("CMD socket(%s)", s.ListenerFdName)
+	return fmt.Sprintf("CMD socket(%s)", s.ListenerFdName)
 }
 
 // Listen implement the gone/daemon/srv.Listener interface and
@@ -158,7 +153,7 @@ func (s *Server) Listen() (err error) {
 			//fmt.Fprintln(os.Stderr, "I:", fdname)
 			//fmt.Fprintln(os.Stderr, "I:", gonecmd)
 			var file, cmdfile *os.File
-			file,_, err = sd.FileWith(fdname)
+			file, _, err = sd.FileWith(fdname)
 			if err != nil {
 				return
 			}
@@ -172,7 +167,7 @@ func (s *Server) Listen() (err error) {
 			if err != nil {
 				return
 			}
-			cmdfile.Seek(0,0)
+			cmdfile.Seek(0, 0)
 			var cmdline []byte
 			cmdline, err = ioutil.ReadAll(cmdfile)
 			if err != nil {
@@ -266,23 +261,22 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 	//	helpCommand = "help"
 	//}
 
-
 	// An anonymous inode file which contains the current executing commandline
 	var err error
 	var cmdfile *os.File
 	cmdfile, err = ioutil.TempFile("", "gonectrl")
 	if err != nil {
-		fmt.Fprintln(c, "Unable to persist command. No tmpfile: " + err.Error())
+		fmt.Fprintln(c, "Unable to persist command. No tmpfile: "+err.Error())
 		return
 	}
 
 	// the sd names of the fds passed to next Server instance.
 	gonectrl := path.Base(cmdfile.Name())
-	gonecmd  := "gonecmd" + strings.TrimPrefix(gonectrl, "gonectrl")
+	gonecmd := "gonecmd" + strings.TrimPrefix(gonectrl, "gonectrl")
 
 	err = unix.Unlink(cmdfile.Name())
 	if err != nil {
-		fmt.Fprintln(c, "Unable to persist command. No unlink: " + err.Error())
+		fmt.Fprintln(c, "Unable to persist command. No unlink: "+err.Error())
 		return
 	}
 	defer cmdfile.Close()
@@ -310,7 +304,7 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 	// Be sure to have server shutdown stop the scanner.
 	stopch := make(chan struct{})
 	defer close(stopch)
-	go func () {
+	go func() {
 	STOPLOOP:
 		for {
 			// exit when server(conn) exits
@@ -356,11 +350,10 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 			continue
 		}
 
-
 		// Since the current running command is now know to be replaced.
 		// remove it from persistent file.
 		cmdfile.Truncate(0)
-		cmdfile.Seek(0,0)
+		cmdfile.Seek(0, 0)
 		cmdfile.Sync()
 
 		// ctx can be nil if last cmd was a help command.
@@ -412,8 +405,8 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 				if err == nil {
 					if async != nil {
 						if persistent != "" {
-						// record the command for the next server
-						// so it can be replayed.
+							// record the command for the next server
+							// so it can be replayed.
 							cmdfile.WriteString(persistent)
 							cmdfile.Sync()
 						}
@@ -434,7 +427,7 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 			}
 		} else {
 			if helpCommand != "" {
-				fmt.Fprintln(c, "Unknown command, try: " + helpCommand)
+				fmt.Fprintln(c, "Unknown command, try: "+helpCommand)
 			} else {
 				fmt.Fprintln(c, "Unknown command")
 			}
@@ -468,7 +461,7 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 }
 
 type usageinfo struct {
-	syntax string
+	syntax  string
 	comment string
 }
 
@@ -479,7 +472,7 @@ func (s *Server) help(w io.Writer, hcmd, qcmd string) {
 
 	var cmdlength, syntaxlength, commentlength int
 	var _usageinfo = make(map[string]*usageinfo)
-	for cmd  := range commands {
+	for cmd := range commands {
 		cmdobj, ok := commands[cmd]
 
 		if len(cmd) > cmdlength {
@@ -500,7 +493,6 @@ func (s *Server) help(w io.Writer, hcmd, qcmd string) {
 		}
 	}
 
-
 	fmt.Fprintln(w, "---- commands --------------------------------------------------------------")
 	if qcmd != "" {
 		fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, qcmd, syntaxlength, "", commentlength, "exit and close the connection")
@@ -509,8 +501,7 @@ func (s *Server) help(w io.Writer, hcmd, qcmd string) {
 		fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, hcmd, syntaxlength, "[cmd]", commentlength, "help")
 	}
 
-
-	for cmd, info  := range _usageinfo {
+	for cmd, info := range _usageinfo {
 		if info != nil {
 			fmt.Fprintf(w, "%-*s %-*s - %-*s\n", cmdlength, cmd, syntaxlength, info.syntax, commentlength, info.comment)
 		} else {

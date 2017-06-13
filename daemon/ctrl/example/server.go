@@ -1,24 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	stdlog "log"
 	"net/http"
 	"os"
-	"time"
 	"sync"
-	"context"
+	"time"
 
-	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/daemon/ctrl"
+	"github.com/One-com/gone/daemon/srv"
 
 	"github.com/One-com/gone/http/gonesrv"
 	"github.com/One-com/gone/http/graceful"
 	"github.com/One-com/gone/http/handlers/accesslog"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
-
 )
 
 func myHandlerFunc(s *Server, cfg string, revision int) http.HandlerFunc {
@@ -28,13 +27,12 @@ func myHandlerFunc(s *Server, cfg string, revision int) http.HandlerFunc {
 	})
 }
 
-
 //----------------- The actual HTTP server ----------------------
 // maintaining a simple string as state.
 
 type Server struct {
 	*gonesrv.Server
-	mu sync.Mutex
+	mu     sync.Mutex
 	curval string
 }
 
@@ -93,7 +91,7 @@ type serverControlCommand struct {
 	s *Server
 }
 
-func (sc *serverControlCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error ) {
+func (sc *serverControlCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error) {
 	if len(args) > 0 {
 		switch args[0] {
 		case "set":
@@ -113,7 +111,7 @@ func (sc *serverControlCommand) Invoke(ctx context.Context, w io.Writer, cmd str
 }
 
 func (sc *serverControlCommand) ShortUsage() (syntax, comment string) {
-	syntax  = "[get | set <value> ]"
+	syntax = "[get | set <value> ]"
 	comment = "Control server state"
 	return
 }

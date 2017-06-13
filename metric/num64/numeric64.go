@@ -19,7 +19,7 @@ type Numeric64 struct {
 	value uint64
 }
 
-func FromUint64(v uint64 ) Numeric64 {
+func FromUint64(v uint64) Numeric64 {
 	return Numeric64{Type: Uint64, value: v}
 }
 
@@ -34,7 +34,6 @@ func FromFloat64(v float64) Numeric64 {
 func Float64FromUint64(v uint64) Numeric64 {
 	return Numeric64{Type: Float64, value: v}
 }
-
 
 // Uint64 returns the 64-bit values as a uint64
 func (n Numeric64) Uint64() uint64 {

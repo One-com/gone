@@ -43,7 +43,7 @@ func (l *listener) Accept() (rc net.Conn, err error) {
 	c, err = l.Listener.Accept()
 	if err == nil {
 		ic := &conn{Conn: c}
-		
+
 	HANDOFF:
 		for {
 			select {

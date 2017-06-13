@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net"
 	"os"
-	unix "syscall"
 	"sync/atomic"
+	unix "syscall"
 )
 
 var ErrNoSuchFdName = errors.New("No file with the requested name and no requested address")
@@ -314,7 +314,7 @@ func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
 				return
 			}
 			// try aquire lock
-			err = unix.Flock(int(lock.Fd()), unix.LOCK_EX | unix.LOCK_NB)
+			err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB)
 			if err == nil {
 				err = _statBeforeUnlink(name)
 			}
@@ -323,7 +323,7 @@ func maybeUnlinkUnixSocketFile(addr *net.UnixAddr) (lock *os.File, err error) {
 	return
 }
 
-func _statBeforeUnlink(name string) (err error){
+func _statBeforeUnlink(name string) (err error) {
 
 	var stat unix.Stat_t
 	err = unix.Stat(name, &stat)

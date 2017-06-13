@@ -1,9 +1,9 @@
 package daemon
 
 import (
-	"net"
-	"errors"
 	"crypto/tls"
+	"errors"
+	"net"
 
 	"github.com/One-com/gone/sd"
 )
@@ -15,7 +15,7 @@ var ErrNoListener = errors.New("No Matching Listener")
 // ListenSpec describes the properties of a listener so it can be instantiated
 // either via the "sd" library or directly from stdlib package "net"
 type ListenerSpec struct {
-	Net  string
+	Net string
 
 	Addr string
 	// ListenerFdName can be set to pick a named file descriptor as
@@ -66,14 +66,14 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 
 		var taddr *net.TCPAddr
 		var uaddr *net.UnixAddr
-		
+
 		var nett string = ls.Net
 		if nett == "" { // default to TCP
 			nett = "tcp"
 		}
 
 		switch nett {
-		case "tcp", "tcp4", "tcp6":	
+		case "tcp", "tcp4", "tcp6":
 			if ls.Addr != "" {
 				taddr, err = net.ResolveTCPAddr(nett, ls.Addr)
 				if err != nil {
@@ -82,7 +82,7 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 			}
 			basictest = sd.IsTCPListener(taddr)
 		case "unix", "unixpacket":
-		
+
 			if ls.Addr != "" {
 				uaddr, err = net.ResolveUnixAddr(nett, ls.Addr)
 				if err != nil {
@@ -91,7 +91,7 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 			}
 			basictest = sd.IsUNIXListener(uaddr)
 		}
-		
+
 		var filetests []sd.FileTest
 		filetests = append(filetests, basictest)
 		filetests = append(filetests, ls.ExtraFileTests...)
@@ -110,7 +110,7 @@ func (lg ListenerGroup) Listen() (listeners []net.Listener, err error) {
 			// make a fresh listener
 			var new net.Listener
 			switch nett {
-			case "tcp", "tcp4", "tcp6":		
+			case "tcp", "tcp4", "tcp6":
 				new, err = net.ListenTCP(nett, taddr)
 				if err != nil {
 					return

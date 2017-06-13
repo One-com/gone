@@ -304,7 +304,7 @@ func (srv *Server) manageConnections(add, idle, active, remove chan net.Conn, st
 				return
 			}
 		case done = <-stop: // take the done channel we get
-			if len(connections) == 0 && len(idleConnections) == 0  {
+			if len(connections) == 0 && len(idleConnections) == 0 {
 				// if we were idle, we just return
 				done <- killed
 				return

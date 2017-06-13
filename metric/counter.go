@@ -1,8 +1,8 @@
 package metric
 
 import (
+	"github.com/One-com/gone/metric/num64"
 	"sync/atomic"
-		"github.com/One-com/gone/metric/num64"
 )
 
 // Counter is different from a GaugeInt64 in that it is reset to zero every

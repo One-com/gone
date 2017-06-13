@@ -32,12 +32,11 @@ type OptionalSubConfig subConfig
 // catch mistakes in the config.
 type MandatorySubConfig subConfig
 
-
 // ErrEmptySubConfig is returned my ParseInto on MandatorySubConfig
 // if there is no JSON data.
 var ErrEmptySubConfig = errors.New("Missing mandatory SubConfig")
 
-func parse (j json.RawMessage, i interface{}) (o interface{}, err error) {
+func parse(j json.RawMessage, i interface{}) (o interface{}, err error) {
 
 	switch t := i.(type) {
 	case *interface{}:

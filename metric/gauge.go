@@ -1,9 +1,9 @@
 package metric
 
 import (
+	"github.com/One-com/gone/metric/num64"
 	"math"
 	"sync/atomic"
-	"github.com/One-com/gone/metric/num64"
 )
 
 // A client maintained gauge which is only sampled regulary without information loss

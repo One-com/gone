@@ -1,11 +1,11 @@
 package sd
 
 import (
+	"fmt"
 	"net"
 	"net/http"
-	"testing"
 	"os"
-	"fmt"
+	"testing"
 )
 
 func TestFileWith(t *testing.T) {
@@ -57,7 +57,6 @@ func TestFileWith(t *testing.T) {
 //	fmt.Printf("PID %d\n", os.Getpid())
 //}
 
-
 func countOpenFds() (int, error) {
 
 	procdir := fmt.Sprintf("/proc/%d/fd", os.Getpid())
@@ -98,13 +97,11 @@ func TestExport(t *testing.T) {
 		close(again) // allow main test routine to proceed.
 	}()
 
-
 	if len(_availablefds()) != 0 || len(_activefds()) != 1 {
 		t.Fatalf("Number of open FDs: %d/%d\n", len(_availablefds()), len(fdState.active))
 	}
 
 	l.Close() // provoke Serve() to exit
-
 
 	<-again
 	Reset() // allow using active file descriptors again
@@ -129,7 +126,6 @@ func TestExport(t *testing.T) {
 	go func() {
 		s.Serve(l2)
 	}()
-
 
 	client := &http.Client{}
 
@@ -159,7 +155,6 @@ func TestExport(t *testing.T) {
 	Reset()
 	Cleanup()
 }
-
 
 func TestForget(t *testing.T) {
 

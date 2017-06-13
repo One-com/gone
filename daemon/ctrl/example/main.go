@@ -1,24 +1,23 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"github.com/One-com/gone/daemon"
-	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/daemon/ctrl"
-	"github.com/One-com/gone/signals"
+	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/log"
 	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/sd"
+	"github.com/One-com/gone/signals"
 	"io"
 	"os"
 	"syscall"
-	"context"
-	"flag"
 )
 
-
 var accessLogControl = newAccessLogCommand(serverLogFunc)
-var procControl      = &procCommand{}
+var procControl = &procCommand{}
 
 func loadConfig(cfg string) daemon.ConfigureFunc {
 	var revision int
@@ -44,7 +43,6 @@ func loadConfig(cfg string) daemon.ConfigureFunc {
 }
 
 //----------------- Signal handling ----------------------
-
 
 func onSignalExit() {
 	log.Println("Signal Exit")
@@ -98,12 +96,12 @@ func init() {
 	/* Setup signalling */
 
 	handledSignals := signals.Mappings{
-		syscall.SIGINT  : onSignalExit,
-		syscall.SIGTERM : onSignalExitGraceful,
-		syscall.SIGHUP  : onSignalReload,
-		syscall.SIGUSR2 : onSignalRespawn,
-		syscall.SIGTTIN : onSignalIncLogLevel,
-		syscall.SIGTTOU : onSignalDecLogLevel,
+		syscall.SIGINT:  onSignalExit,
+		syscall.SIGTERM: onSignalExitGraceful,
+		syscall.SIGHUP:  onSignalReload,
+		syscall.SIGUSR2: onSignalRespawn,
+		syscall.SIGTTIN: onSignalIncLogLevel,
+		syscall.SIGTTOU: onSignalDecLogLevel,
 	}
 
 	log.SetLevel(syslog.LOG_DEBUG)
@@ -136,10 +134,9 @@ func main() {
 	log.Println("Halted")
 }
 
-
 // A simple command doing the same as the registered OS signals
 
-type procCommand struct {}
+type procCommand struct{}
 
 func (p *procCommand) ShortUsage() (syntax, comment string) {
 	syntax = "[reload|stop|respawn]"
@@ -151,7 +148,7 @@ func (p *procCommand) Usage(cmd string, w io.Writer) {
 	fmt.Fprintln(w, cmd, "control the process")
 }
 
-func (p *procCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error ) {
+func (p *procCommand) Invoke(ctx context.Context, w io.Writer, cmd string, args []string) (async func(), persistent string, err error) {
 	cmd = args[0]
 	switch cmd {
 	case "reload":

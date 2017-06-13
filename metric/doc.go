@@ -9,4 +9,3 @@ The API is accessed via Client objects. (There's a default global client). The l
 The statsd sink also does client side buffering before sending UDP packages and is flushed when asked, or when running full. You can set the max size of the UDP datagrams created.
 */
 package metric
-

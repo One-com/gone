@@ -19,9 +19,9 @@ const (
 // be periodically reported to the Sink.
 // This interface doesn't describe how measurements are done. That depends
 // on the specific meter it self. This interface only makes the Client able
-// to flush the meter to a sink. 
+// to flush the meter to a sink.
 type meter interface {
-//	MeterType() int
+	//	MeterType() int
 	Name() string
 	Flush(Sink) // Read the meter, by flushing all non-read values.
 }

@@ -1,16 +1,16 @@
 package daemon
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/daemon/ctrl"
+	"github.com/One-com/gone/daemon/srv"
 	"github.com/One-com/gone/sd"
 	"os"
 	"sync"
 	"syscall"
 	"time"
-	"context"
 )
 
 // CleanupFunc is a function to call after a srv.Server is fully exited.
@@ -29,9 +29,9 @@ var (
 	// Permanent channels. Never closed
 	// If Run() is called again after exit there could be left over events on these.
 	// Normally Run() shouldn't be called again, but it can be useful in tests.
-	stopch chan bool // true to do graceful shutdown
+	stopch   chan bool          // true to do graceful shutdown
 	tostopch chan time.Duration // stop gracefully with timeout
-	reload chan struct{} // reload the daemon config
+	reload   chan struct{}      // reload the daemon config
 )
 
 func init() {
@@ -153,7 +153,6 @@ func Run(opts ...RunOption) (err error) {
 		nextCancel  context.CancelFunc
 	)
 
-
 	cfg := &runcfg{readyCallbacks: make([]func() error, 0)}
 	for _, o := range opts {
 		o(cfg)
@@ -174,8 +173,8 @@ func Run(opts ...RunOption) (err error) {
 		return err
 	}
 
-	var exit          bool // set true when Run() should break the main loop
-	var graceful_exit bool // whether exit of Run() should wait for clean shutdown
+	var exit bool                     // set true when Run() should break the main loop
+	var graceful_exit bool            // whether exit of Run() should wait for clean shutdown
 	var shutdownTimeout time.Duration // how long to wait for last generation servers to be completely done
 
 	if cfg.timeout != 0 {
@@ -209,7 +208,7 @@ func Run(opts ...RunOption) (err error) {
 			// Wait for reload signal
 			case <-reload:
 				var err error
-				var newServers  []Server
+				var newServers []Server
 				var newCleanups []CleanupFunc
 				// prefer non-legacy servers
 				if cfg.cfgfunc != nil {
@@ -218,7 +217,7 @@ func Run(opts ...RunOption) (err error) {
 					// Wrap all legacy servers in compatibility wrapper
 					s, c, e := cfg.legacy_cfgfunc()
 					for _, l := range s {
-						newServers = append(newServers, &wrapper{Server:l})
+						newServers = append(newServers, &wrapper{Server: l})
 					}
 					newCleanups = c
 					err = e
@@ -245,7 +244,7 @@ func Run(opts ...RunOption) (err error) {
 					Log(LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
 				}
 				// Main loop might be waiting for the first config. Notify it's done.
-				firstConfigDoneOnce.Do(func() {close(firstConfigLoadDone)})
+				firstConfigDoneOnce.Do(func() { close(firstConfigLoadDone) })
 
 			case <-eventch:
 				break EVENTLOOP
@@ -275,11 +274,11 @@ MainLoop:
 		// Set up any control socket
 		if cfg.ctrlSockName != "" || cfg.ctrlSockPath != "" {
 			cs := &ctrl.Server{
-				Addr:  cfg.ctrlSockPath,
+				Addr:           cfg.ctrlSockPath,
 				ListenerFdName: cfg.ctrlSockName,
-				HelpCommand: "?",
-				QuitCommand: "q",
-				Logger: Log,
+				HelpCommand:    "?",
+				QuitCommand:    "q",
+				Logger:         Log,
 			}
 			csdone := make(chan struct{})
 			err = cs.Listen()
@@ -347,7 +346,7 @@ MainLoop:
 func recordShutdown(rev int, server LingeringServer, cleanups []CleanupFunc, timeout time.Duration) {
 
 	var (
-		ctx context.Context
+		ctx    context.Context
 		cancel context.CancelFunc
 	)
 	if timeout == 0 {

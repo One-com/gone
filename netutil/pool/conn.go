@@ -21,6 +21,6 @@ func (pc PoolConn) Close() error {
 
 // newConn wraps a standard net.Conn to a PoolConn net.Conn.
 func (c *channelPool) wrapConn(conn net.Conn) *PoolConn {
-	p := PoolConn{Conn:conn, pool: c}
+	p := PoolConn{Conn: conn, pool: c}
 	return &p
 }

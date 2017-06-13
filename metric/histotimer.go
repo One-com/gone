@@ -1,8 +1,8 @@
 package metric
 
 import (
-	"time"
 	"github.com/One-com/gone/metric/num64"
+	"time"
 )
 
 // A histogram is a series of int64 events all sent to the server
@@ -14,7 +14,7 @@ func NewHistogram(name string, opts ...MOption) *Histogram {
 	return defaultClient.NewHistogram(name, opts...)
 }
 
-// NewHistogram creates a new persistent metric object measuring arbitrary sample values 
+// NewHistogram creates a new persistent metric object measuring arbitrary sample values
 // by allocating a client side FIFO buffer for recording and flushing measurements
 func (c *Client) NewHistogram(name string, opts ...MOption) *Histogram {
 	dequeuef := func(f Sink, val uint64) {

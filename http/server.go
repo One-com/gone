@@ -1,13 +1,13 @@
 package http
 
 import (
+	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"sync"
-	"context"
-	"crypto/tls"
-	"errors"
 
 	"github.com/One-com/gone/netutil"
 )
@@ -109,7 +109,7 @@ func (s *Server) Serve(ctx context.Context) (err error) {
 		select {
 		case <-ctx.Done():
 			for _, l := range listeners {
-					l.Close()
+				l.Close()
 			}
 		case <-exit:
 		}
@@ -125,7 +125,7 @@ func (s *Server) Description() string {
 	var listeners string
 	for i, l := range s.listeners {
 		listeners += l.Addr().Network() + "/" + l.Addr().String()
-		if i != len(s.listeners) - 1 {
+		if i != len(s.listeners)-1 {
 			listeners += " "
 		}
 	}

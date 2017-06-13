@@ -17,7 +17,6 @@ type AppConfigOpt struct {
 	S *OptionalSubConfig `json:",omitempty"`
 }
 
-
 type ModuleConfig struct {
 	B string
 }
@@ -35,7 +34,6 @@ func initSubModuleNoPointer(cfg SubConfig) (err error) {
 	err = cfg.ParseInto(&jc)
 	return
 }
-
 
 func ExampleSubConfig() {
 
@@ -79,7 +77,6 @@ func ExampleSubConfig() {
 	// }
 }
 
-
 func ExampleSubConfigNoPointer() {
 
 	// main application conf object
@@ -121,7 +118,6 @@ func ExampleSubConfigNoPointer() {
 	//     }
 	// }
 }
-
 
 //------------------------------------------------------------------
 
@@ -173,7 +169,6 @@ var confdata3 = `// start comment
   },
 }`
 
-
 func ExampleSyntaxError() {
 
 	// main application conf object
@@ -193,7 +188,6 @@ func ExampleSyntaxError() {
 	// Output:
 	// Parse error: invalid character ',' after object key (byte=58 line=6):    "b",<---
 }
-
 
 var nilconfdata = `{ "a" : "app" }`
 

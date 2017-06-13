@@ -2,18 +2,17 @@ package pool
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
-	"fmt"
 )
 
 // channelPool implements the Pool interface based on buffered channels.
 type channelPool struct {
+	mu sync.Mutex
 
-	mu    sync.Mutex
-
-	// storage for idle net.Conn connections	
+	// storage for idle net.Conn connections
 	conns chan net.Conn
 
 	maxconns  int
@@ -35,13 +34,13 @@ type Factory func() (net.Conn, error)
 // If blocking is true, Get() block until there's a connection available when the pool is full
 // If blocking is false, Get() returns an error.
 func NewChannelPool(idleSize int, maxSize int, factory Factory, blocking bool) (Pool, error) {
-	if  idleSize < 0 || maxSize <= 0 || idleSize >= maxSize {
+	if idleSize < 0 || maxSize <= 0 || idleSize >= maxSize {
 		return nil, errors.New("invalid capacity settings")
 	}
 
 	c := &channelPool{
-		conns:   make(chan net.Conn, idleSize),
-		factory: factory,
+		conns:    make(chan net.Conn, idleSize),
+		factory:  factory,
 		maxconns: maxSize,
 		blocking: blocking,
 	}
@@ -62,18 +61,18 @@ func (c *channelPool) Get() (*PoolConn, bool, error) {
 	// However... if the pool is "full" and we are configured to block, then we release
 	// the pool and sit down to wait for someone to pul a used connection into the idle queue.
 	select {
-	case conn := <- c.conns:
+	case conn := <-c.conns:
 		if conn == nil {
 			return nil, false, ErrClosed
 		}
 		return c.wrapConn(conn), false, nil
 	default:
-		c.mu.Lock()		
+		c.mu.Lock()
 		if c.openconns >= c.maxconns {
 			c.mu.Unlock()
 			if c.blocking {
 				// wait for a connection
-				conn := <- c.conns
+				conn := <-c.conns
 				if conn == nil {
 					return nil, false, ErrClosed
 				}
@@ -140,6 +139,6 @@ func (c *channelPool) Close() {
 		conn.Close()
 	}
 	close(c.conns)
-	c.factory = nil // mark the pool as closed.	
+	c.factory = nil // mark the pool as closed.
 	c.mu.Unlock()
 }

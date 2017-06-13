@@ -35,9 +35,9 @@ func TestDuration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Indent error: %s", err.Error())
 	}
-	
+
 	if out.String() != durdata {
 		t.Fail()
 	}
-	
+
 }

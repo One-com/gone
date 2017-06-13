@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
 	"sync"
+	"syscall"
 )
 
 const (
@@ -56,7 +56,7 @@ func StartProcess(env []string) (int, error) {
 	// Put info about FDs into ENV for new process
 	var expFiles []*os.File
 	envNames := envListenFdNames + "="
-	envInfo  := envGoneFdInfo + "="
+	envInfo := envGoneFdInfo + "="
 	for i, sdf := range files {
 		if i != 0 {
 			envNames += ":"
@@ -109,7 +109,6 @@ func ReplaceProcessEnv(sig syscall.Signal, env []string) (int, error) {
 	}
 	return StartProcess(env[:])
 }
-
 
 // SignalParentTermination signals any parent who have asked to be terminated via the ENV
 func SignalParentTermination() error {

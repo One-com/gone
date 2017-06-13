@@ -1,18 +1,18 @@
 package jconf
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"bytes"
 )
 
 // SyntaxError is an extension of encoding/json.SyntaxError but with an error text
 // with a better description of the position in the input data (marker and line)
 type SyntaxError struct {
 	Cause *json.SyntaxError
-	help string
+	help  string
 }
 
 func (e *SyntaxError) Error() string { return e.help }
@@ -65,7 +65,7 @@ func filterComments(data []byte) {
 		// it's either closing or opening inString and it is not escaped
 		if !inCommentSingleLine && curChar == '"' && index >= 1 && data[index-1] != '\\' {
 			// We met a " which is not escaped. Either start a string or stop it
-			inString = ! inString
+			inString = !inString
 		}
 
 		if inString || index == 0 {
@@ -87,13 +87,12 @@ func filterComments(data []byte) {
 	}
 }
 
-
 // Find out where a Syntax Error occurred in the JSON string
 func fmtSyntaxError(js []byte, syntax *json.SyntaxError) error {
 
-	start := bytes.LastIndex(js[:syntax.Offset], []byte{'\n'})+1
+	start := bytes.LastIndex(js[:syntax.Offset], []byte{'\n'}) + 1
 
-	line := bytes.Count(js[:start], []byte{'\n'})+1
+	line := bytes.Count(js[:start], []byte{'\n'}) + 1
 
 	help := string(js[start:syntax.Offset]) + "<---"
 

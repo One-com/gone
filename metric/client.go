@@ -1,9 +1,9 @@
 package metric
 
 import (
+	"github.com/One-com/gone/metric/num64"
 	"sync"
 	"time"
-	"github.com/One-com/gone/metric/num64"
 )
 
 // Client is the main object the applications holds to do metrics.
@@ -16,7 +16,7 @@ type Client struct {
 	done *sync.WaitGroup
 
 	// protects the flusher map and the running flag.
-	fmu      sync.Mutex
+	fmu sync.Mutex
 	// a map of flushers doing flushing at given intervals
 	// - to reuse a flusher for metrics with same interval
 	flushers map[time.Duration]*flusher
@@ -56,7 +56,7 @@ func NewClient(sinkf SinkFactory, opts ...MOption) (client *Client) {
 	if sinkf != nil {
 		client.SetSink(sinkf)
 	}
-	
+
 	client.SetOptions(opts...)
 
 	return

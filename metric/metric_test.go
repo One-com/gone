@@ -5,7 +5,7 @@ import (
 	"github.com/One-com/gone/metric/sink/statsd"
 	"log"
 	"time"
-//	"testing"
+	//	"testing"
 	"os"
 )
 
@@ -68,9 +68,9 @@ func ExampleNewClient() {
 
 	gauge.Set(23)
 	counter.Inc(1)
-	timer.Sample(time.Duration(10*time.Millisecond))
+	timer.Sample(time.Duration(10 * time.Millisecond))
 	histo.Sample(17)
-	
+
 	c.Flush()
 	// Output:
 	// prefix.gauge:23|g

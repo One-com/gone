@@ -183,7 +183,7 @@ func (m *MultiServer) start() (err error) {
 
 	for _, s := range m.servers {
 		if s != nil {
-			m.exited.Add(1) // Undone when the Server go-routine exits
+			m.exited.Add(1)  // Undone when the Server go-routine exits
 			m.startServer(s) // does not block
 		}
 	}

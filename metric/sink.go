@@ -1,6 +1,6 @@
 package metric
 
-import 	"github.com/One-com/gone/metric/num64"
+import "github.com/One-com/gone/metric/num64"
 
 // Sink is a sink for metrics data which methods are guaranteed to be called
 // synchronized. Thus it can keep state like buffers without locking

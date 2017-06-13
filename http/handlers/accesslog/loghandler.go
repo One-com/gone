@@ -1,12 +1,12 @@
 package accesslog
 
 import (
-	"sync"
-	"sync/atomic"
+	"fmt"
 	"io"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
-	"fmt"
 
 	"github.com/One-com/gone/http/rrwriter"
 
@@ -71,7 +71,7 @@ func (h *logHandler) ToggleAccessLog(old, new io.Writer) {
 	}
 
 	// walk through the writers, find the one needing to be retired.
-	var i,j int
+	var i, j int
 	for i < len(h.writers) {
 		wo := h.writers[i]
 		var wn io.Writer

@@ -1,9 +1,9 @@
 package daemon
 
 import (
-	"fmt"
-	"errors"
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/One-com/gone/daemon/srv"
@@ -14,7 +14,7 @@ import (
 // enabling running srv.Server objects in the new
 type wrapper struct {
 	srv.Server
-	done chan struct{}
+	done   chan struct{}
 	closed chan struct{}
 }
 
@@ -45,7 +45,7 @@ func (w *wrapper) Serve(ctx context.Context) (err error) {
 	// If this server is Closed() without Wait() having exited, warn the user.
 	if waiter, ok := w.Server.(srv.Waiter); ok {
 		// monitor go-routine
-		go func () {
+		go func() {
 			select {
 			case <-w.done:
 			case <-w.closed:

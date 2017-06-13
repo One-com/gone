@@ -1,12 +1,11 @@
 package daemon
 
 import (
-	"fmt"
-	"errors"
 	"context"
-	"sync"
+	"errors"
+	"fmt"
 	"github.com/One-com/gone/sd"
-
+	"sync"
 )
 
 // Server is the interface of objects daemon.Run() will manage.
@@ -94,7 +93,6 @@ func (se serverEnsemble) Serve(ctx context.Context) (err error) {
 	return
 }
 
-
 func (se serverEnsemble) Shutdown(ctx context.Context) (err error) {
 
 	dwg := new(sync.WaitGroup)
@@ -124,7 +122,6 @@ func (se serverEnsemble) Close() (err error) {
 	dwg.Wait()
 	return
 }
-
 
 // serve implements the main logic of handling the list of running servers.
 // First let then Listen().
@@ -157,9 +154,9 @@ func serve(ctx context.Context, server ListeningServer) (err error) {
 }
 
 const (
-	actionServe = "Serve"
+	actionServe    = "Serve"
 	actionShutdown = "Shutdown"
-	actionClose = "Close"
+	actionClose    = "Close"
 )
 
 // Launch a specific server - does not block
