@@ -96,7 +96,7 @@ func (m *MultiServer) Log(level int, msg string) {
 // Servers can acknowledge Shutdown() without having fully exited if they
 // implement the Wait() method. The done channel will be closed when all
 // servers have exited and any implementors of Wait() has been waited on.
-func (m *MultiServer) Serve(servers []Server, ready_cb func() error) (done chan struct{}, err error) {
+func (m *MultiServer) Serve(servers []Server, readyCallback func() error) (done chan struct{}, err error) {
 
 	if servers == nil || len(servers) == 0 {
 		return nil, errors.New("No servers")
@@ -130,8 +130,8 @@ func (m *MultiServer) Serve(servers []Server, ready_cb func() error) (done chan 
 	}()
 
 	// Notify that we are running
-	if ready_cb != nil {
-		nerr := ready_cb()
+	if readyCallback != nil {
+		nerr := readyCallback()
 		if nerr != nil {
 			m.mu.Lock()
 			m.err = nerr

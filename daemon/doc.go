@@ -1,5 +1,5 @@
 /*
-Package gone/daemon aims to make it easier to write simple network daemons for process supervised deployment like "systemd".
+Package daemon aims to make it easier to write simple network daemons for process supervised deployment like "systemd".
 
 https://www.freedesktop.org/software/systemd/man/daemon.html
 

@@ -173,38 +173,38 @@ func (u *roundRobinUpstream) newRoundTripContext(first int) *rrcontext {
 // NextTarget implements the VirtualUpstream interface.
 func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTripContext) (out vtransport.RoundTripContext, err error) {
 
-	var start_idx int // where this search for a next target started
+	var start int // where this search for a next target started
 	var ctx *rrcontext
 	if in == nil {
 		var pinkey string
 		if u.pinKeyFunc != nil {
 			pinkey = u.pinKeyFunc(req)
-			start_idx = u.cache.Get(pinkey)
+			start = u.cache.Get(pinkey)
 		}
-		if u.pinKeyFunc == nil || start_idx == -1 {
+		if u.pinKeyFunc == nil || start == -1 {
 			// Pick the next overall server as starting point for search
 			u.mu.Lock()
-			start_idx = u.step(u.idx)
-			u.idx = start_idx
+			start = u.step(u.idx)
+			u.idx = start
 			u.mu.Unlock()
 		}
-		ctx = u.newRoundTripContext(start_idx)
+		ctx = u.newRoundTripContext(start)
 		ctx.pinkey = pinkey
 	} else {
 		ctx = in.(*rrcontext)
 		ctx.retry++
 
 		// Pick the next server from the context as starting point
-		start_idx = u.step(ctx.idx)
+		start = u.step(ctx.idx)
 
 		// If the next server is the first we tried - note exhaustion
-		if start_idx == ctx.first {
+		if start == ctx.first {
 			ctx.wrap++
 		}
 	}
 
 	// Start search to find a healthy server
-	next := start_idx
+	next := start
 	u.smu.Lock()
 	for {
 		if !u.targets[next].down {
@@ -220,7 +220,7 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 
 		// Try next server in pool (Round Robin style)
 		next = u.step(next)
-		if next == start_idx {
+		if next == start {
 			// We've tried all servers
 			// But don't fail without trying something
 			ctx.wrap++

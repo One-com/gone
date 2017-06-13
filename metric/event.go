@@ -30,7 +30,7 @@ type eventStream struct {
 	ridx  uint64 // index of next unread slot
 	slots [bufferSize]event
 
-	flusher Flusher
+	flusher *flusher
 
 	dequeue dequeueFunc
 
@@ -50,7 +50,7 @@ func (c *Client) newEventStream(name string, mtype int, dqf dequeueFunc) *eventS
 	return e
 }
 
-func (e *eventStream) SetFlusher(f Flusher) {
+func (e *eventStream) SetFlusher(f *flusher) {
 	e.flusher = f
 }
 
@@ -83,9 +83,9 @@ func (e *eventStream) Name() string {
 	return e.name
 }
 
-func (e *eventStream) MeterType() int {
-	return e.mtype
-}
+//func (e *eventStream) MeterType() int {
+//	return e.mtype
+//}
 
 func (e *eventStream) Enqueue(val uint64) {
 

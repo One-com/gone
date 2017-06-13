@@ -3,6 +3,7 @@ package metric
 import (
 	"math"
 	"sync/atomic"
+	"github.com/One-com/gone/metric/num64"
 )
 
 // A client maintained gauge which is only sampled regulary without information loss
@@ -48,7 +49,7 @@ func (c *Client) NewGaugeUint64(name string, opts ...MOption) *GaugeUint64 {
 // Flush to implement Meter interface
 func (g *GaugeUint64) Flush(s Sink) {
 	val := atomic.LoadUint64(&g.val)
-	n := Numeric64{Type: Uint64, value: val}
+	n := num64.FromUint64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }
 
@@ -57,10 +58,10 @@ func (g *GaugeUint64) Name() string {
 	return g.name
 }
 
-// MeterType to implement Meter interface
-func (g *GaugeUint64) MeterType() int {
-	return MeterGauge
-}
+//// MeterType to implement Meter interface
+//func (g *GaugeUint64) MeterType() int {
+//	return MeterGauge
+//}
 
 // Set will update the gauge value
 func (g *GaugeUint64) Set(val uint64) {
@@ -72,41 +73,45 @@ func (g *GaugeUint64) Value() uint64 {
 	return atomic.LoadUint64(&g.val)
 }
 
-// Increment the gauge value
+// Inc will increment the gauge value
 func (g *GaugeUint64) Inc(i uint64) {
 	atomic.AddUint64(&g.val, i)
 }
 
-// Decrement the gauge value
+// Dec will decrement the gauge value
 func (g *GaugeUint64) Dec(i int64) {
 	atomic.AddUint64(&g.val, ^uint64(i-1))
 }
 
-// An Int64 Gauge. Can be used as a go-metric client side gauge or counter
+// NewgaugeInt64 creates a int64 Gauge. Can be used as a go-metric client side gauge or counter
 func (c *Client) NewGaugeInt64(name string, opts ...MOption) *GaugeInt64 {
 	g := &GaugeInt64{name: name}
 	c.register(g, opts...)
 	return g
 }
 
+// Flush sends the gauge value to the sink
 func (g *GaugeInt64) Flush(s Sink) {
 	val := atomic.LoadInt64(&g.val)
-	n := Numeric64{Type: Int64, value: uint64(val)}
+	n := num64.FromInt64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }
 
+// Name returns the name of the gauge.
 func (g *GaugeInt64) Name() string {
 	return g.name
 }
 
-func (g *GaugeInt64) MeterType() int {
-	return MeterGauge
-}
+//func (g *GaugeInt64) MeterType() int {
+//	return MeterGauge
+//}
 
+// Set sets the gauge value
 func (g *GaugeInt64) Set(val int64) {
 	atomic.StoreInt64(&g.val, val)
 }
 
+// Value returns the current gauge value
 func (g *GaugeInt64) Value() int64 {
 	return atomic.LoadInt64(&g.val)
 }
@@ -121,20 +126,21 @@ func (g *GaugeInt64) Inc(i int64) {
 	atomic.AddInt64(&g.val, i)
 }
 
-// An Float64 Gauge.
+// NewGaugeFloat64 creates a gauge holding a Float64 value.
 func (c *Client) NewGaugeFloat64(name string, opts ...MOption) *GaugeFloat64 {
 	g := &GaugeFloat64{name: name}
 	c.register(g, opts...)
 	return g
 }
 
+// Name returns the name of the gauge
 func (g *GaugeFloat64) Name() string {
 	return g.name
 }
 
-func (g *GaugeFloat64) MeterType() int {
-	return MeterGauge
-}
+//func (g *GaugeFloat64) MeterType() int {
+//	return MeterGauge
+//}
 
 // Update updates the gauge's value.
 func (g *GaugeFloat64) Set(v float64) {
@@ -149,6 +155,6 @@ func (g *GaugeFloat64) Value() float64 {
 
 func (g *GaugeFloat64) Flush(s Sink) {
 	val := atomic.LoadUint64(&g.val)
-	n := Numeric64{Type: Float64, value: val}
+	n := num64.Float64FromUint64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)
 }

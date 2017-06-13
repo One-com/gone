@@ -3,7 +3,11 @@ package metric
 import (
 	"sync"
 	"time"
+	"github.com/One-com/gone/metric/num64"
 )
+
+// This file is a shared implementation of two types of flushers: static/fixed or dynamic
+// A flusher either flushes at a given interval, or when it's asked to do so by a Meter (which has filled its internal buffer)
 
 // A flusher is either run with a fixed flushinterval with a go-routine which
 // exits on stop(), or with a dynamic changeable flushinterval in a permanent go-routine.
@@ -14,10 +18,12 @@ const (
 	flusherTypeDynamic // used for the defaultFlusher
 )
 
-// To make a flusher private but still make other code define SetFlusher()
-type Flusher struct {
-	*flusher
-}
+// To make a flusher private but still make other code able to define SetFlusher()
+
+//// Flusher is a
+//type Flusher struct {
+//	*flusher
+//}
 
 type flusher struct {
 	// Tell the flusher to exit - or (for defaultFlusher) restart
@@ -25,14 +31,19 @@ type flusher struct {
 	// Kick the flusher to reconsider interval (used for defaultFlusher)
 	kickChan chan struct{}
 
+	// The flusher interval
 	interval time.Duration
 
+	// The Meters (metrics objects) being flushed by this flusher
 	mu     sync.Mutex
-	meters []Meter
+	meters []meter
 
 	// only set once by the run/rundyn method to fix how the flusher is used.
 	ftype int
 
+	// The sink of data being flushed. Created from a SinkFactory.
+	// The Sink is guaranteed to be called under an external lock, so it
+	// doesn't need to use locking it self.
 	sink Sink
 }
 
@@ -147,8 +158,8 @@ LOOP:
 	f.Flush()
 }
 
-// flush a single Meter. Sync with the Flusher mutex
-func (f *flusher) FlushMeter(m Meter) {
+// flush a single meter. Sync with the Flusher mutex
+func (f *flusher) FlushMeter(m meter) {
 	f.mu.Lock()
 	m.Flush(f.sink)
 	f.mu.Unlock()
@@ -166,12 +177,13 @@ func (f *flusher) Flush() {
 
 // Register a meter in the flusher. If the meters needs to know
 // the flushe to do autoflushing, tell it.
-func (f *flusher) register(m Meter) {
+func (f *flusher) register(m meter) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.meters = append(f.meters, m)
-	if a, ok := m.(AutoFlusher); ok {
-		a.SetFlusher(Flusher{f})
+	if a, ok := m.(autoFlusher); ok {
+		//a.SetFlusher(Flusher{f})
+		a.SetFlusher(f)
 	}
 }
 
@@ -184,7 +196,7 @@ func (f *flusher) Record(mtype int, name string, value interface{}, flush bool) 
 	f.mu.Unlock()
 }
 
-func (f *flusher) RecordNumeric64(mtype int, name string, value Numeric64, flush bool) {
+func (f *flusher) RecordNumeric64(mtype int, name string, value num64.Numeric64, flush bool) {
 	f.mu.Lock()
 	f.sink.RecordNumeric64(mtype, name, value)
 	if flush {

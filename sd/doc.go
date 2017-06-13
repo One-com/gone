@@ -1,5 +1,5 @@
 /*
-Package gone/sd aims to make it easier to write simple network daemons for Linux systemd
+Package sd aims to make it easier to write simple network daemons for Linux systemd
 
 https://www.freedesktop.org/software/systemd/man/daemon.html
 

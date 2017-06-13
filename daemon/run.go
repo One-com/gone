@@ -26,6 +26,9 @@ type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 type ConfigFunc func() ([]Server, []CleanupFunc, error)
 
 var (
+	// Permanent channels. Never closed
+	// If Run() is called again after exit there could be left over events on these.
+	// Normally Run() shouldn't be called again, but it can be useful in tests.
 	stopch chan bool // true to do graceful shutdown
 	tostopch chan time.Duration // stop gracefully with timeout
 	reload chan struct{} // reload the daemon config
@@ -173,15 +176,15 @@ func Run(opts ...RunOption) (err error) {
 
 	var exit          bool // set true when Run() should break the main loop
 	var graceful_exit bool // whether exit of Run() should wait for clean shutdown
-	var shutdown_timeout time.Duration // how long to wait for last generation servers to be completely done
+	var shutdownTimeout time.Duration // how long to wait for last generation servers to be completely done
 
 	if cfg.timeout != 0 {
-		shutdown_timeout = cfg.timeout
+		shutdownTimeout = cfg.timeout
 	}
 
 	// We cannot serve the first run before the Event handler tells us configuration is done
 	//var first_mu sync.Mutex
-	first_config_load_done := make(chan struct{})
+	firstConfigLoadDone := make(chan struct{})
 
 	// Event handler
 	// Even if gone/signals or other code serialized the signals, we don't know how they are wired up and
@@ -196,7 +199,7 @@ func Run(opts ...RunOption) (err error) {
 		for {
 			select {
 			case timeout := <-tostopch:
-				shutdown_timeout = timeout
+				shutdownTimeout = timeout
 				graceful_exit = true
 				exit = true
 				nextCancel()
@@ -242,7 +245,7 @@ func Run(opts ...RunOption) (err error) {
 					Log(LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
 				}
 				// Main loop might be waiting for the first config. Notify it's done.
-				firstConfigDoneOnce.Do(func() {close(first_config_load_done)})
+				firstConfigDoneOnce.Do(func() {close(firstConfigLoadDone)})
 
 			case <-eventch:
 				break EVENTLOOP
@@ -253,7 +256,7 @@ func Run(opts ...RunOption) (err error) {
 	// Load the initial config by asking event manager to load it
 	reload <- struct{}{}
 	// Wait here until event manager is ready with first config
-	<-first_config_load_done
+	<-firstConfigLoadDone
 
 MainLoop:
 	for {
@@ -305,16 +308,16 @@ MainLoop:
 			})
 		}
 
-		running_server := serverEnsemble{servers, readyCallback}
-		running_revision := revision
-		running_cleanups := cleanups
+		runningServer := serverEnsemble{servers, readyCallback}
+		runningRevision := revision
+		runningCleanups := cleanups
 
-		running_context := nextContext
+		runningContext := nextContext
 
 		srvmu.Unlock()
 
 		// Start serving the currently configured servers
-		if err = serve(running_context, running_server); err != nil {
+		if err = serve(runningContext, runningServer); err != nil {
 			return
 		}
 
@@ -324,9 +327,9 @@ MainLoop:
 		}
 
 		if cfg.syncReload {
-			recordShutdown(running_revision, running_server, running_cleanups, 0)
+			recordShutdown(runningRevision, runningServer, runningCleanups, 0)
 		} else {
-			go recordShutdown(running_revision, running_server, running_cleanups, 0)
+			go recordShutdown(runningRevision, runningServer, runningCleanups, 0)
 		}
 	} // end MainLoop
 
@@ -334,7 +337,7 @@ MainLoop:
 	if graceful_exit {
 		srvmu.Lock()
 		Log(LvlNOTICE, "Waiting for graceful shutdown")
-		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdown_timeout)
+		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdownTimeout)
 		srvmu.Unlock()
 	}
 	close(eventch)

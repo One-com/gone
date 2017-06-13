@@ -3,6 +3,7 @@ package statsd
 import (
 	"fmt"
 	"github.com/One-com/gone/metric"
+	"github.com/One-com/gone/metric/num64"
 	"io"
 	"net"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 )
 
+// Option is the type of configuration options for the statsd sink factory.
 type Option func(*statsdSinkFactory) error
 
 type statsdSinkFactory struct {
@@ -105,7 +107,7 @@ func (s *statsdSink) Record(mtype int, name string, value interface{}) {
 	s.flushIfBufferFull(curbuflen)
 }
 
-func (s *statsdSink) RecordNumeric64(mtype int, name string, value metric.Numeric64) {
+func (s *statsdSink) RecordNumeric64(mtype int, name string, value num64.Numeric64) {
 	curbuflen := len(s.buf)
 	s.buf = append(s.buf, s.prefix...)
 	s.buf = append(s.buf, name...)
@@ -159,13 +161,13 @@ func (s *statsdSink) appendType(t int) {
 	}
 }
 
-func (s *statsdSink) appendNumeric64(v metric.Numeric64) {
+func (s *statsdSink) appendNumeric64(v num64.Numeric64) {
 	switch v.Type {
-	case metric.Uint64:
+	case num64.Uint64:
 		s.buf = strconv.AppendUint(s.buf, v.Uint64(), 10)
-	case metric.Int64:
+	case num64.Int64:
 		s.buf = strconv.AppendInt(s.buf, v.Int64(), 10)
-	case metric.Float64:
+	case num64.Float64:
 		s.buf = strconv.AppendFloat(s.buf, v.Float64(), 'f', -1, 64)
 	}
 }

@@ -14,16 +14,20 @@ const (
 	MeterSet              // free form string events
 )
 
-// A Meter measures stuff and can be registered with a client to
-// be periodically reported to the Sink
-type Meter interface {
-	MeterType() int
+// Meter is a named metrics measurement as seen from the Client.
+// It measures stuff and can be registered with a client to
+// be periodically reported to the Sink.
+// This interface doesn't describe how measurements are done. That depends
+// on the specific meter it self. This interface only makes the Client able
+// to flush the meter to a sink. 
+type meter interface {
+//	MeterType() int
 	Name() string
 	Flush(Sink) // Read the meter, by flushing all non-read values.
 }
 
 // An AutoFlusher can initiate a Flush through the flusher at any time and needs
 // to know the Flusher to call FlushMeter() on it
-type AutoFlusher interface {
-	SetFlusher(Flusher)
+type autoFlusher interface {
+	SetFlusher(*flusher)
 }

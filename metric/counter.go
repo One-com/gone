@@ -2,6 +2,7 @@ package metric
 
 import (
 	"sync/atomic"
+		"github.com/One-com/gone/metric/num64"
 )
 
 // Counter is different from a GaugeInt64 in that it is reset to zero every
@@ -29,18 +30,19 @@ func (c *Client) NewCounter(name string, opts ...MOption) *Counter {
 func (c *Counter) Flush(s Sink) {
 	val := atomic.SwapInt64(&c.val, 0)
 	if val != 0 {
-		n := Numeric64{Type: Int64, value: uint64(val)}
+		n := num64.FromInt64(int64(val))
 		s.RecordNumeric64(MeterCounter, c.name, n)
 	}
 }
 
+// Name returns the name of the counter
 func (c *Counter) Name() string {
 	return c.name
 }
 
-func (c *Counter) MeterType() int {
-	return MeterCounter
-}
+//func (c *Counter) MeterType() int {
+//	return MeterCounter
+//}
 
 func (c *Counter) Inc(val int64) {
 	atomic.AddInt64(&c.val, val)
