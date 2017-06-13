@@ -19,9 +19,12 @@ func (d *Duration) UnmarshalJSON(b []byte) (err error) {
 		return
 	}
 
-	var id int64
-	id, err = json.Number(string(b)).Int64()
-	d.Duration = time.Duration(id)
+	var i int64
+	i, err = json.Number(string(b)).Int64()
+	if err != nil {
+		return
+	}
+	d.Duration = time.Duration(i)
 
 	return
 }

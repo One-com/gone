@@ -4,21 +4,30 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+	"fmt"
 )
 
 type DurConfig struct {
 	Delay Duration `json:"delay"`
+	NanoDelay Duration `json:"nanodelay"`
 }
 
-var durdata = `{
-    "delay": "17s"
+var indata = `{
+    "delay": "17s",
+    "nanodelay": 31000
 }`
+
+var outdata = `{
+    "delay": "17s",
+    "nanodelay": "31µs"
+}`
+
 
 func TestDuration(t *testing.T) {
 
 	var cfg *DurConfig
 
-	buf := bytes.NewBufferString(durdata)
+	buf := bytes.NewBufferString(indata)
 
 	err := ParseInto(buf, &cfg)
 	if err != nil {
@@ -36,7 +45,9 @@ func TestDuration(t *testing.T) {
 		t.Fatalf("Indent error: %s", err.Error())
 	}
 
-	if out.String() != durdata {
+	result := out.String()
+	if  result != outdata {
+		fmt.Println(result)
 		t.Fail()
 	}
 
