@@ -1,4 +1,6 @@
-# gone jconf
+# gone/jconf
+
+[![GoDoc](https://godoc.org/github.com/one-com/gone/jconf?status.svg)](https://godoc.org/github.com/one-com/gone/jconf) [![GoReportCard](https://goreportcard.com/badge/github.com/One-com/gone)](https://goreportcard.com/report/github.com/One-com/gone/jconf) [Coverage](http://gocover.io/github.com/One-com/gone/jconf)
 
 Modular JSON config parsing allowing // comments and full serialization of the entire resulting data hierarchy to JSON.
 
