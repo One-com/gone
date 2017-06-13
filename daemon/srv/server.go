@@ -109,7 +109,7 @@ func (m *MultiServer) Serve(servers []Server, readyCallback func() error) (done 
 	}
 
 	m.servers = servers
-	done_chan := make(chan struct{})
+	doneChan := make(chan struct{})
 
 	dwg := new(sync.WaitGroup)
 	m.done = dwg
@@ -126,7 +126,7 @@ func (m *MultiServer) Serve(servers []Server, readyCallback func() error) (done 
 	// Make something close the done channel when all servers have no more activity
 	go func() {
 		dwg.Wait()
-		close(done_chan)
+		close(doneChan)
 	}()
 
 	// Notify that we are running
@@ -149,7 +149,7 @@ func (m *MultiServer) Serve(servers []Server, readyCallback func() error) (done 
 	m.running = false // don't allow us to be called again before now
 	m.mu.Unlock()
 
-	return done_chan, m.err
+	return doneChan, m.err
 }
 
 // Shutdown send an async signal to the server to exit Serve() by calling Shutdown in the

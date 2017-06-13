@@ -30,6 +30,7 @@ func myHandlerFunc(s *Server, cfg string, revision int) http.HandlerFunc {
 //----------------- The actual HTTP server ----------------------
 // maintaining a simple string as state.
 
+// Server is an example server which can be manipulated via the control socket
 type Server struct {
 	*gonesrv.Server
 	mu     sync.Mutex

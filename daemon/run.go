@@ -77,6 +77,8 @@ func InstantiateServers(f ConfigureFunc) RunOption {
 	})
 }
 
+// ControlSocket is an option to provude a systemd socket name and/or a path for the
+// daemon control socket. Providing "","" disables the control socket.
 func ControlSocket(name, path string) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.ctrlSockPath = path
@@ -84,6 +86,10 @@ func ControlSocket(name, path string) RunOption {
 	})
 }
 
+// ShutdownTimeout is an option to Run() to control the default timeout value for
+// graceful shutdowns. This is used when OS signals or similar crude interface triggers
+// a graceful shutdown. Using a control socket you can provide the timeout duration at
+// shutdown time.
 func ShutdownTimeout(to time.Duration) RunOption {
 	return RunOption(func(rc *runcfg) {
 		rc.timeout = to
