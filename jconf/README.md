@@ -4,7 +4,7 @@ Modular JSON config parsing allowing // comments and full serialization of the e
 
 Package jconf allows you to avoid having you main configuration data structure know about every individual code modules internal
 configuration structures in order to serialize the entire configuration. Instead you can localize module config data structures
-with the code which them.
+with the code using them.
 
 ## Example
 
