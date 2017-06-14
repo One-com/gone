@@ -9,7 +9,7 @@ This is not strictly a "framework". The individual packages do not really depend
 
 * **sd** Manages your socket file descriptors and (if wanted) interacts with Linux systemd socket-activation, FDSTORE and NOTIFY socket - and provides process management if you want the old style fork/kill process replacement reload.
 
-* **http** Provides extentions of the standard HTTP library. A Server capable of graceful shutdown and a client side failover virtual Transport
+* **http** Provides extentions of the standard HTTP library. - Like a dynamic accesslogging middleware and a client side failover virtual Transport
 
 * **daemon** Wraps the sd package and a lot of daemon management boilerplate code to make if very easy to start a full featured daemon, doing graceful reload and/or zero-downtime restart/upgrades.
 
@@ -19,5 +19,4 @@ This is not strictly a "framework". The individual packages do not really depend
 
 * **signals** Run a signal handler and call functions based on a signal->function map.
 
-... more to come.
-
+* **netutil** A simple generic net.Conn connection pool and a wrapper around net.Listener and net.Dialer to have a reaper go-routine monitor IO activity.
