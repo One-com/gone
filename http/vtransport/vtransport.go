@@ -89,7 +89,6 @@ func isIdempotent(method string) bool {
 // Per default if will only retry idempotent requests
 func Retries(retries int, maxRepeat int, nonIdempotent bool) RetryPolicy {
 	return func(req *http.Request, err error, ctx RoundTripContext) bool {
-		fmt.Printf("ERROR: %#v - %s\n", err, err.Error())
 		if ctx.Retries() >= retries {
 			return false
 		}
