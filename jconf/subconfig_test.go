@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"testing"
 )
 
 type FullConfig struct {
@@ -92,7 +93,7 @@ func ExampleSubConfig() {
 	// }
 }
 
-func ExampleSubConfigNoPointer() {
+func TestSubConfigNoPointer(t *testing.T) {
 
 	// main application conf object
 	cfg := &AppConfig{}
@@ -104,34 +105,37 @@ func ExampleSubConfigNoPointer() {
 	// Parse the man config
 	err := dec.Decode(&cfg)
 	if err != nil {
-		log.Fatalf("%#v\n", err)
+		t.Fatalf("%v\n", err)
 	}
 
 	// Let our submodule parse its own config
 	err = initSubModuleNoPointer(cfg.S)
 	if err != nil {
-		log.Fatalf("Module Config parsing failed: %s", err.Error())
+		t.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
 
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
-		log.Fatalf("Marshal error: %s", err)
+		t.Fatalf("Marshal error: %s", err)
 	}
 
 	err = json.Indent(&out, b, "", "    ")
 	if err != nil {
-		log.Fatalf("Indent error: %s", err)
+		t.Fatalf("Indent error: %s", err)
 	}
-	out.WriteTo(os.Stdout)
+	
+	expected := `{
+    "A": "app",
+    "S": {
+        "B": "module"
+    }
+}`
+	output := out.String()
+	if output != expected {
+		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
+	}
 
-	// Output:
-	// {
-	//     "A": "app",
-	//     "S": {
-	//         "B": "module"
-	//     }
-	// }
 }
 
 //------------------------------------------------------------------
@@ -155,7 +159,7 @@ var fullconfdata = `{
 }
 `
 
-func ExampleFull() {
+func TestFull(t *testing.T) {
 
 	// main application conf object
 	var cfg *FullConfig
@@ -164,14 +168,14 @@ func ExampleFull() {
 
 	err := ParseInto(buf, &cfg)
 	if err != nil {
-		log.Fatalf("%v\n", err)
+		t.Fatalf("%v\n", err)
 	}
 
 	// Let our submodule parse its own config
 	msub := cfg.M
 	err = initSubModule(msub.S)
 	if err != nil {
-		log.Fatalf("Module Config parsing failed: %s", err.Error())
+		t.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
 
 	// also for the non existing optional one
@@ -179,47 +183,50 @@ func ExampleFull() {
 	if osub != nil {
 		err = initSubModule(osub.S)
 		if err != nil {
-			log.Fatalf("Module Config parsing failed: %s", err.Error())
+			t.Fatalf("Module Config parsing failed: %s", err.Error())
 		}
 	}
 
 	// and the kv map
 	err = initSimpleSubModule(cfg.X)
 	if err != nil {
-		log.Fatalf("Module Config parsing failed: %s", err.Error())
+		t.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
 	
 	
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
-		log.Fatalf("Marshal error: %s", err.Error())
+		t.Fatalf("Marshal error: %s", err.Error())
 	}
 
 	err = json.Indent(&out, b, "", "    ")
 	if err != nil {
 		log.Fatalf("Indent error: %s", err.Error())
 	}
-	out.WriteTo(os.Stdout)
 
-	// Output:
-	// {
-        //     "M": {
-        //         "A": "app",
-        //         "S": {
-        //             "B": "xy"
-        //         }
-        //     },
-	//     "O": {
-        //         "A": "foo",
-	//         "S": {
-	//             "B": "bar"
-        //         }
-        //     },
-	//     "X": {
-	//         "key": "val"
-        //     }
-	// }
+	expected := `{
+    "M": {
+        "A": "app",
+        "S": {
+            "B": "xy"
+        }
+    },
+    "O": {
+        "A": "foo",
+        "S": {
+            "B": "bar"
+        }
+    },
+    "X": {
+        "key": "val"
+    }
+}`
+
+	output := out.String()
+	if output != expected {
+		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
+	}
 }
 
 var confdata3 = `// start comment
@@ -231,7 +238,7 @@ var confdata3 = `// start comment
   },
 }`
 
-func ExampleSyntaxError() {
+func TestSyntaxError(t *testing.T) {
 
 	// main application conf object
 	cfg := &AppConfig{}
@@ -245,15 +252,17 @@ func ExampleSyntaxError() {
 
 	var out = bytes.NewBufferString(err.Error())
 
-	out.WriteTo(os.Stdout)
+	expected := `Parse error: invalid character ',' after object key (byte=58 line=6):    "b",<---`
 
-	// Output:
-	// Parse error: invalid character ',' after object key (byte=58 line=6):    "b",<---
+	output := out.String()
+	if output != expected {
+		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
+	}
 }
 
 var nilconfdata = `{ "a" : "app" }`
 
-func ExampleMandatoryNilSubConfig() {
+func TestMandatoryNilSubConfig(t *testing.T) {
 
 	// main application conf object
 	cfg := &AppConfig{}
@@ -265,39 +274,43 @@ func ExampleMandatoryNilSubConfig() {
 	// Parse the man config
 	err := dec.Decode(&cfg)
 	if err != nil {
-		log.Fatalf("%v\n", err)
+		t.Fatalf("%v\n", err)
 	}
 
 	// Let our submodule parse its own config
 	err = initSubModule(cfg.S)
 	if err == nil {
-		log.Fatalf("Module Config parsing didn't detect error")
+		t.Fatalf("Module Config parsing didn't detect error")
 	} else {
 		if err != ErrEmptySubConfig {
-			log.Fatalf("Module Config parsing failed: %s", err.Error())
+			t.Fatalf("Module Config parsing failed: %s", err.Error())
 		}
 	}
 
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
-		log.Fatalf("Marshal error: %s", err)
+		t.Fatalf("Marshal error: %s", err)
 	}
 
 	err = json.Indent(&out, b, "", "    ")
 	if err != nil {
-		log.Fatalf("Indent error: %s", err)
+		t.Fatalf("Indent error: %s", err)
 	}
-	out.WriteTo(os.Stdout)
+	
+	expected := `{
+    "A": "app",
+    "S": null
+}`
 
-	// Output:
-	// {
-	//     "A": "app",
-	//     "S": null
-	// }
+	output := out.String()
+	if output != expected {
+		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
+	}
+	
 }
 
-func ExampleOptionalNilSubConfig() {
+func TestOptionalNilSubConfig(t *testing.T) {
 
 	// main application conf object
 	cfg := &AppConfigOpt{}
@@ -328,10 +341,13 @@ func ExampleOptionalNilSubConfig() {
 	if err != nil {
 		log.Fatalf("Indent error: %s", err)
 	}
-	out.WriteTo(os.Stdout)
 
-	// Output:
-	// {
-	//     "A": "app"
-	// }
+	expected := `{
+    "A": "app"
+}`
+
+	output := out.String()
+	if output != expected {
+		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
+	}
 }
