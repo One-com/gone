@@ -21,7 +21,7 @@ func NewHistogram(name string) Histogram {
 	return Histogram{t}
 }
 
-// Sample record new event for the histogram
+// Sample records new event for the histogram
 func (e Histogram) Sample(d int64) {
 	//e := (*eventStream)(h)
 	e.enqueue(uint64(d))

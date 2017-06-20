@@ -229,27 +229,62 @@ func (c *Client) Flush() {
 
 //--------------------------------------------------------------
 
+// RegisterCounter is equivalent to Register(NewCounter(), opts) with the default Client.
 func (c *Client) RegisterCounter(name string, opts ...MOption) *Counter {
 	meter := NewCounter(name)
 	c.Register(meter, opts...)
 	return meter
 }
 
+// RegisterGauge is equivalent to Register(NewGauge(), opts) with the default Client.
 func (c *Client) RegisterGauge(name string, opts ...MOption) *GaugeUint64 {
 	meter := NewGauge(name)
 	c.Register(meter, opts...)
 	return meter
 }
 
+// RegisterTimer is equivalent to Register(NewTimer(), opts) with the default Client.
 func (c *Client) RegisterTimer(name string, opts ...MOption) Timer {
 	meter := NewTimer(name)
 	c.Register(meter, opts...)
 	return meter
 }
 
+// RegisterHistogram is equivalent to Register(NewHistogram(), opts) with the default Client.
 func (c *Client) RegisterHistogram(name string, opts ...MOption) Histogram {
 	meter := NewHistogram(name)
 	c.Register(meter, opts...)
+	return meter
+}
+
+
+//--------------------------------------------------------------
+
+// RegisterCounter is equivalent to Register(NewCounter(), opts) with the default Client.
+func RegisterCounter(name string, opts ...MOption) *Counter {
+	meter := NewCounter(name)
+	defaultClient.Register(meter, opts...)
+	return meter
+}
+
+// RegisterGauge is equivalent to Register(NewGauge(), opts) with the default Client.
+func RegisterGauge(name string, opts ...MOption) *GaugeUint64 {
+	meter := NewGauge(name)
+	defaultClient.Register(meter, opts...)
+	return meter
+}
+
+// RegisterTimer is equivalent to Register(NewTimer(), opts) with the default Client.
+func RegisterTimer(name string, opts ...MOption) Timer {
+	meter := NewTimer(name)
+	defaultClient.Register(meter, opts...)
+	return meter
+}
+
+// RegisterHistogram is equivalent to Register(NewHistogram(), opts) with the default Client.
+func RegisterHistogram(name string, opts ...MOption) Histogram {
+	meter := NewHistogram(name)
+	defaultClient.Register(meter, opts...)
 	return meter
 }
 

@@ -20,7 +20,7 @@ func TestReplaceNilSink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gauge := metric.Default().RegisterGauge("gauge")
+	gauge := metric.RegisterGauge("gauge")
 
 	gauge.Set(23)
 	metric.Flush()
@@ -60,7 +60,7 @@ func TestFlushSink(t *testing.T) {
 	metric.SetDefaultSink(sink)
 	metric.SetDefaultOptions(metric.FlushInterval(500 * time.Millisecond))
 
-	gauge := metric.Default().RegisterGauge("auto")
+	gauge := metric.RegisterGauge("auto")
 
 	gauge.Set(25)
 
