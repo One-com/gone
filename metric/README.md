@@ -1,5 +1,7 @@
 # gone/metric
 
+## Warning ... this package is under re-factoring.
+
 Fast Golang metrics library [![GoDoc](https://godoc.org/github.com/one-com/gone/metric?status.svg)](https://godoc.org/github.com/one-com/gone/metric) [![GoReportCard](https://goreportcard.com/badge/github.com/One-com/gone)](https://goreportcard.com/report/github.com/One-com/gone/metric) [Coverage](http://gocover.io/github.com/One-com/gone/metric)
 
 Package gone/metric is an expandable library for metrics.
