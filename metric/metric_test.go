@@ -10,7 +10,7 @@ import (
 )
 
 func ExampleNewClient() {
-	
+
 	sink, err := statsd.New(
 		statsd.Buffer(512),
 		statsd.Output(os.Stdout),

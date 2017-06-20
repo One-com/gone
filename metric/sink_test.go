@@ -1,18 +1,17 @@
 package metric_test
 
 import (
+	"bytes"
 	"github.com/One-com/gone/metric"
 	"github.com/One-com/gone/metric/sink/statsd"
 	"testing"
-	"bytes"
 	"time"
 )
-
 
 func TestReplaceNilSink(t *testing.T) {
 
 	var buffer = &bytes.Buffer{}
-	
+
 	sink, err := statsd.New(
 		statsd.Buffer(512),
 		statsd.Output(buffer),
@@ -22,7 +21,7 @@ func TestReplaceNilSink(t *testing.T) {
 	}
 
 	gauge := metric.Default().RegisterGauge("gauge")
-	
+
 	gauge.Set(23)
 	metric.Flush()
 
@@ -43,13 +42,13 @@ func TestReplaceNilSink(t *testing.T) {
 
 	// Prevent this from mixing into other tests
 	metric.Default().Deregister(gauge)
-	
+
 }
 
 func TestFlushSink(t *testing.T) {
 
 	var buffer = &bytes.Buffer{}
-	
+
 	sink, err := statsd.New(
 		statsd.Buffer(512),
 		statsd.Output(buffer),
@@ -59,10 +58,10 @@ func TestFlushSink(t *testing.T) {
 	}
 
 	metric.SetDefaultSink(sink)
-	metric.SetDefaultOptions(metric.FlushInterval(500*time.Millisecond))
-	
+	metric.SetDefaultOptions(metric.FlushInterval(500 * time.Millisecond))
+
 	gauge := metric.Default().RegisterGauge("auto")
-	
+
 	gauge.Set(25)
 
 	// It should not have been flushed yet.
@@ -72,14 +71,14 @@ func TestFlushSink(t *testing.T) {
 	}
 
 	// Wait for the gauge reading to happen.
-	time.Sleep(600*time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
 
 	// Add another manually and tell it to flush the sink
 	metric.Default().AdhocGauge("manual", 26, true)
-	
+
 	output = buffer.Bytes()
 	if string(output) != "pfx.auto:25|g\npfx.manual:26|g\n" {
 		t.Errorf("Wrong output %s", output)
 	}
-	
+
 }

@@ -1,10 +1,10 @@
 package metric
 
 import (
+	"errors"
 	"github.com/One-com/gone/metric/num64"
 	"sync"
 	"time"
-	"errors"
 )
 
 // This file is a shared implementation of two types of flushers: static/fixed or dynamic
@@ -209,7 +209,7 @@ func (f *flusher) deregister(m Meter) error {
 		f.meters = f.meters[:l-1] // clip of the end.
 		return nil
 	}
-	return errDeregister	
+	return errDeregister
 }
 
 // Record records a value directly at the sink of this flusher.

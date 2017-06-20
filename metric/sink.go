@@ -32,7 +32,6 @@ type Sink interface {
 // A sink implementation can chose not to exploit this and a simple SinkFactory can
 // just return it self as a Sink an do locking on all access.
 
-
 type unlockedSink interface {
 	UnlockedSink() Sink
 }

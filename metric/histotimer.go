@@ -6,7 +6,7 @@ import (
 )
 
 // Histogram is a series of int64 events all sent to the server
-type Histogram struct {	
+type Histogram struct {
 	*eventStream
 }
 
@@ -30,7 +30,7 @@ func (e Histogram) Sample(d int64) {
 // Timer is like Histogram, but the event is a time.Duration.
 // values are remembered as milliseconds
 type Timer struct {
-	*eventStream	
+	*eventStream
 }
 
 // NewTimer creates a new persistent metric object measuring timing values.

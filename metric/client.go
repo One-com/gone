@@ -20,8 +20,8 @@ type Client struct {
 	// a map of flushers doing flushing at given intervals
 	// - to reuse a flusher for metrics with same interval
 	flushers map[time.Duration]*flusher
-	meters map[Meter]*flusher
-	
+	meters   map[Meter]*flusher
+
 	// The flusher handling meters which have been given no specific
 	// flush interval
 	defaultFlusher *flusher
@@ -56,7 +56,7 @@ func NewClient(sink Sink, opts ...MOption) (client *Client) {
 	client.done = new(sync.WaitGroup)
 	client.flushers = make(map[time.Duration]*flusher)
 	client.meters = make(map[Meter]*flusher)
-	
+
 	// create a default flusher which do not flush by it self.
 	client.defaultFlusher = newFlusher(0)
 
@@ -171,7 +171,7 @@ func (c *Client) Deregister(m Meter) error {
 	defer c.fmu.Unlock()
 	if f, ok := c.meters[m]; ok {
 		return f.deregister(m)
-		
+
 	}
 	return errDeregister
 }
@@ -192,7 +192,7 @@ func (c *Client) Register(m Meter, opts ...MOption) {
 	if fi, ok := conf.cfg["flushInterval"]; ok {
 		flush = fi.(time.Duration)
 		if f, ok = c.flushers[flush]; !ok {
-			f = newFlusher(flush)		
+			f = newFlusher(flush)
 			f.setSink(c.sinkf)
 			c.flushers[flush] = f
 			if c.running {
@@ -206,7 +206,7 @@ func (c *Client) Register(m Meter, opts ...MOption) {
 		c.defaultFlusher.register(m)
 		c.meters[m] = c.defaultFlusher
 	}
-	
+
 	c.fmu.Unlock()
 }
 
@@ -252,7 +252,6 @@ func (c *Client) RegisterHistogram(name string, opts ...MOption) Histogram {
 	c.Register(meter, opts...)
 	return meter
 }
-
 
 //--------------------------------------------------------------
 

@@ -34,7 +34,7 @@ type eventStream struct {
 
 	dequeue dequeueFunc
 
-	name  string
+	name string
 }
 
 func newEventStream(name string, dqf dequeueFunc) *eventStream {
