@@ -35,11 +35,10 @@ type eventStream struct {
 	dequeue dequeueFunc
 
 	name  string
-	mtype int
 }
 
-func (c *Client) newEventStream(name string, mtype int, dqf dequeueFunc) *eventStream {
-	e := &eventStream{name: name, mtype: mtype, dequeue: dqf, widx: indexStart, ridx: indexStart}
+func newEventStream(name string, dqf dequeueFunc) *eventStream {
+	e := &eventStream{name: name, dequeue: dqf, widx: indexStart, ridx: indexStart}
 
 	// make sure first slot is not valid from the start due to zero-value
 	// and set all sequences to their "old" value
@@ -50,12 +49,12 @@ func (c *Client) newEventStream(name string, mtype int, dqf dequeueFunc) *eventS
 	return e
 }
 
-func (e *eventStream) SetFlusher(f *flusher) {
+func (e *eventStream) setFlusher(f *flusher) {
 	e.flusher = f
 }
 
-// Flush as much as possible
-func (e *eventStream) Flush(f Sink) {
+// FlushReading - flush as much as possible.
+func (e *eventStream) FlushReading(s Sink) {
 
 	var idx uint64
 
@@ -68,7 +67,7 @@ func (e *eventStream) Flush(f Sink) {
 		mark := atomic.LoadUint64(&(e.slots[idx].seq))
 		// either tagged with its slot, or +1 for waited on
 		if mark == ridx || mark == ridx+1 {
-			e.dequeue(f, e.slots[idx].val)
+			e.dequeue(s, e.slots[idx].val)
 			ridx++
 		} else {
 			// we've reached a not yet written slot
@@ -83,11 +82,7 @@ func (e *eventStream) Name() string {
 	return e.name
 }
 
-//func (e *eventStream) MeterType() int {
-//	return e.mtype
-//}
-
-func (e *eventStream) Enqueue(val uint64) {
+func (e *eventStream) enqueue(val uint64) {
 
 	var ridx uint64
 	var widx uint64

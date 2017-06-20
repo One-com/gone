@@ -31,8 +31,10 @@ type Sink interface {
 // This allows a sink implementation to avoid using several layers of locks.
 // A sink implementation can chose not to exploit this and a simple SinkFactory can
 // just return it self as a Sink an do locking on all access.
-type SinkFactory interface {
-	Sink() Sink
+
+
+type unlockedSink interface {
+	UnlockedSink() Sink
 }
 
 // Flushers are created with this sink which just throws away data
@@ -40,7 +42,6 @@ type SinkFactory interface {
 // It's the user responsibility to not generate metrics before setting a sink if this
 // is not wanted.
 type nilSink struct{}
-type nilSinkFactory struct{}
 
 func (n *nilSink) Record(mtype int, name string, value interface{}) {
 }
@@ -49,8 +50,4 @@ func (n *nilSink) RecordNumeric64(mtype int, name string, value num64.Numeric64)
 }
 
 func (n *nilSink) Flush() {
-}
-
-func (n *nilSinkFactory) Sink() Sink {
-	return &nilSink{}
 }

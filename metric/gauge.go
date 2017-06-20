@@ -23,31 +23,25 @@ type GaugeInt64 struct {
 }
 
 // GaugeFloat64 is a float64 gauge which stores its value as a uint64
-// to implement Flush() fast
+// to implement FlushReading() fast (saving an interface allocation)
 type GaugeFloat64 struct {
 	name string
 	val  uint64
 }
 
 // NewGauge is alias for NewGaugeUint64
-func NewGauge(name string, opts ...MOption) *GaugeUint64 {
-	return defaultClient.NewGauge(name, opts...)
-}
-
-// NewGauge is alias for NewGaugeUint64
-func (c *Client) NewGauge(name string, opts ...MOption) *GaugeUint64 {
-	return c.NewGaugeUint64(name, opts...)
+func NewGauge(name string) *GaugeUint64 {
+	return NewGaugeUint64(name)
 }
 
 // NewGaugeUint64 returns a standard gauge.
-func (c *Client) NewGaugeUint64(name string, opts ...MOption) *GaugeUint64 {
+func NewGaugeUint64(name string) *GaugeUint64 {
 	g := &GaugeUint64{name: name}
-	c.register(g, opts...)
 	return g
 }
 
-// Flush to implement Meter interface
-func (g *GaugeUint64) Flush(s Sink) {
+// FlushReading to implement Meter interface
+func (g *GaugeUint64) FlushReading(s Sink) {
 	val := atomic.LoadUint64(&g.val)
 	n := num64.FromUint64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)
@@ -57,11 +51,6 @@ func (g *GaugeUint64) Flush(s Sink) {
 func (g *GaugeUint64) Name() string {
 	return g.name
 }
-
-//// MeterType to implement Meter interface
-//func (g *GaugeUint64) MeterType() int {
-//	return MeterGauge
-//}
 
 // Set will update the gauge value
 func (g *GaugeUint64) Set(val uint64) {
@@ -84,14 +73,13 @@ func (g *GaugeUint64) Dec(i int64) {
 }
 
 // NewGaugeInt64 creates a int64 Gauge. Can be used as a go-metric client side gauge or counter
-func (c *Client) NewGaugeInt64(name string, opts ...MOption) *GaugeInt64 {
+func NewGaugeInt64(name string) *GaugeInt64 {
 	g := &GaugeInt64{name: name}
-	c.register(g, opts...)
 	return g
 }
 
-// Flush sends the gauge value to the sink
-func (g *GaugeInt64) Flush(s Sink) {
+// FlushReading sends the gauge value to the sink
+func (g *GaugeInt64) FlushReading(s Sink) {
 	val := atomic.LoadInt64(&g.val)
 	n := num64.FromInt64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)
@@ -101,10 +89,6 @@ func (g *GaugeInt64) Flush(s Sink) {
 func (g *GaugeInt64) Name() string {
 	return g.name
 }
-
-//func (g *GaugeInt64) MeterType() int {
-//	return MeterGauge
-//}
 
 // Set sets the gauge value
 func (g *GaugeInt64) Set(val int64) {
@@ -127,9 +111,8 @@ func (g *GaugeInt64) Inc(i int64) {
 }
 
 // NewGaugeFloat64 creates a gauge holding a Float64 value.
-func (c *Client) NewGaugeFloat64(name string, opts ...MOption) *GaugeFloat64 {
+func NewGaugeFloat64(name string) *GaugeFloat64 {
 	g := &GaugeFloat64{name: name}
-	c.register(g, opts...)
 	return g
 }
 
@@ -137,10 +120,6 @@ func (c *Client) NewGaugeFloat64(name string, opts ...MOption) *GaugeFloat64 {
 func (g *GaugeFloat64) Name() string {
 	return g.name
 }
-
-//func (g *GaugeFloat64) MeterType() int {
-//	return MeterGauge
-//}
 
 // Set updates the gauge's value.
 func (g *GaugeFloat64) Set(v float64) {
@@ -153,8 +132,8 @@ func (g *GaugeFloat64) Value() float64 {
 	return math.Float64frombits(atomic.LoadUint64(&g.val))
 }
 
-// Flush sends the current gauge value to the Sink
-func (g *GaugeFloat64) Flush(s Sink) {
+// FlushReading sends the current gauge value to the Sink
+func (g *GaugeFloat64) FlushReading(s Sink) {
 	val := atomic.LoadUint64(&g.val)
 	n := num64.Float64FromUint64(val)
 	s.RecordNumeric64(MeterGauge, g.name, n)

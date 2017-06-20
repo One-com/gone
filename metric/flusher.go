@@ -4,6 +4,7 @@ import (
 	"github.com/One-com/gone/metric/num64"
 	"sync"
 	"time"
+	"errors"
 )
 
 // This file is a shared implementation of two types of flushers: static/fixed or dynamic
@@ -18,13 +19,6 @@ const (
 	flusherTypeDynamic // used for the defaultFlusher
 )
 
-// To make a flusher private but still make other code able to define SetFlusher()
-
-//// Flusher is a
-//type Flusher struct {
-//	*flusher
-//}
-
 type flusher struct {
 	// Tell the flusher to exit - or (for defaultFlusher) restart
 	stopChan chan struct{}
@@ -36,7 +30,7 @@ type flusher struct {
 
 	// The Meters (metrics objects) being flushed by this flusher
 	mu     sync.Mutex
-	meters []meter
+	meters []Meter
 
 	// only set once by the run/rundyn method to fix how the flusher is used.
 	ftype int
@@ -53,10 +47,17 @@ func newFlusher(interval time.Duration) *flusher {
 	return f
 }
 
-func (f *flusher) setSink(sink SinkFactory) {
+func (f *flusher) setSink(sink Sink) {
+	if sink == nil {
+		return
+	}
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.sink = sink.Sink()
+	if sf, ok := sink.(unlockedSink); ok {
+		f.sink = sf.UnlockedSink()
+	} else {
+		f.sink = sink
+	}
+	f.mu.Unlock()
 }
 
 func (f *flusher) stop() {
@@ -159,9 +160,9 @@ LOOP:
 }
 
 // flush a single meter. Sync with the Flusher mutex
-func (f *flusher) FlushMeter(m meter) {
+func (f *flusher) FlushMeter(m Meter) {
 	f.mu.Lock()
-	m.Flush(f.sink)
+	m.FlushReading(f.sink)
 	f.mu.Unlock()
 }
 
@@ -169,24 +170,50 @@ func (f *flusher) FlushMeter(m meter) {
 func (f *flusher) Flush() {
 	f.mu.Lock()
 	for _, m := range f.meters {
-		m.Flush(f.sink)
+		m.FlushReading(f.sink)
 	}
 	f.sink.Flush()
 	f.mu.Unlock()
 }
 
 // Register a meter in the flusher. If the meters needs to know
-// the flushe to do autoflushing, tell it.
-func (f *flusher) register(m meter) {
+// the flusher to do autoflushing, tell it.
+func (f *flusher) register(m Meter) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.meters = append(f.meters, m)
 	if a, ok := m.(autoFlusher); ok {
-		//a.SetFlusher(Flusher{f})
-		a.SetFlusher(f)
+		a.setFlusher(f)
 	}
 }
 
+var errDeregister = errors.New("Meter not known to client")
+
+// deregister removes a meter from the list and keeps the list without empty slots.
+func (f *flusher) deregister(m Meter) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	found := -1
+	l := len(f.meters)
+	for i, slot := range f.meters {
+		if slot == m {
+			found = i
+		}
+	}
+	if found != -1 {
+		if found < l-1 { // if l == 0 then found == -1
+			// move the last slot here
+			last := f.meters[l-1]
+			f.meters[found] = last
+		}
+		f.meters = f.meters[:l-1] // clip of the end.
+		return nil
+	}
+	return errDeregister	
+}
+
+// Record records a value directly at the sink of this flusher.
+// optionally flusing the sink.
 func (f *flusher) Record(mtype int, name string, value interface{}, flush bool) {
 	f.mu.Lock()
 	f.sink.Record(mtype, name, value)
@@ -196,6 +223,8 @@ func (f *flusher) Record(mtype int, name string, value interface{}, flush bool) 
 	f.mu.Unlock()
 }
 
+// RecordNumeric64 records a value directly at the sink of this flusher.
+// optionally flusing the sink.
 func (f *flusher) RecordNumeric64(mtype int, name string, value num64.Numeric64, flush bool) {
 	f.mu.Lock()
 	f.sink.RecordNumeric64(mtype, name, value)
@@ -205,6 +234,7 @@ func (f *flusher) RecordNumeric64(mtype int, name string, value num64.Numeric64,
 	f.mu.Unlock()
 }
 
+// FlushSink asks the Sink attached to this flusher to flush it's internal buffers.
 func (f *flusher) FlushSink() {
 	f.mu.Lock()
 	f.sink.Flush()

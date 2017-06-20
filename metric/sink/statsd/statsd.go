@@ -9,28 +9,31 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"sync"
 )
 
 // Option is the type of configuration options for the statsd sink factory.
-type Option func(*statsdSinkFactory) error
+type Option func(*Sink) error
 
-type statsdSinkFactory struct {
-	out    io.Writer
-	max    int
-	prefix string
-}
-
-type statsdSink struct {
+type unlockedSink struct {
 	out    io.Writer
 	max    int
 	prefix string
 	buf    []byte
+	strip bool
+}
+
+// Sink is a go-routine safe version of a Statsd sink.
+// Call UnlockedSink() to get a faster, but not go-routine safe Sink.
+type Sink struct {
+	unlockedSink
+	mu     sync.Mutex
 }
 
 // Buffer sets the package size with which writes to the underlying io.Writer (often an UDPConn)
 // is done.
 func Buffer(size int) Option {
-	return Option(func(s *statsdSinkFactory) error {
+	return Option(func(s *Sink) error {
 		s.max = size
 		return nil
 	})
@@ -38,7 +41,7 @@ func Buffer(size int) Option {
 
 // Prefix is prepended with "prefix." to all metric names
 func Prefix(pfx string) Option {
-	return Option(func(s *statsdSinkFactory) error {
+	return Option(func(s *Sink) error {
 		s.prefix = pfx + "."
 		return nil
 	})
@@ -46,19 +49,20 @@ func Prefix(pfx string) Option {
 
 // Peer is the address of the statsd UDP server
 func Peer(addr string) Option {
-	return Option(func(s *statsdSinkFactory) error {
+	return Option(func(s *Sink) error {
 		conn, err := net.DialTimeout("udp", addr, time.Second)
 		if err != nil {
 			return err
 		}
 		s.out = conn
+		s.strip = true
 		return nil
 	})
 }
 
 // Output sets an general io.Writer as output instead of a UDPConn.
 func Output(w io.Writer) Option {
-	return Option(func(s *statsdSinkFactory) error {
+	return Option(func(s *Sink) error {
 		s.out = w
 		return nil
 	})
@@ -67,27 +71,38 @@ func Output(w io.Writer) Option {
 // New creasted a SinkFactory which is used to create Sinks sending data to a UDP statsd server
 // Provide a UDP address, a prefix and a maximum UDP datagram size.
 // 1432 should be a safe size for most nets.
-func New(opts ...Option) (sink *statsdSinkFactory, err error) {
+func New(opts ...Option) (sink metric.Sink, err error) {
 
-	sink = &statsdSinkFactory{out: os.Stdout}
+	s := &Sink{unlockedSink: unlockedSink{out: os.Stdout}}
 
 	for _, o := range opts {
-		err = o(sink)
+		err = o(s)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	sink = s
+	
 	return
 }
 
-// Sink implmenets the SinkFactory interface.
-func (s *statsdSinkFactory) Sink() metric.Sink {
-	newsink := &statsdSink{out: s.out, max: s.max, prefix: s.prefix}
+func (s *Sink) UnlockedSink() metric.Sink {
+	newsink := &unlockedSink{}
+	*newsink = s.unlockedSink // the buffer might race here, but we discard it.
+	// give this sink its own buffer
 	newsink.buf = make([]byte, 0, 512)
 	return newsink
 }
 
-func (s *statsdSink) Record(mtype int, name string, value interface{}) {
+// Record a value with the sink
+func (s *Sink) Record(mtype int, name string, value interface{}) {
+	s.mu.Lock()
+	s.unlockedSink.Record(mtype, name, value)
+	s.mu.Unlock()
+}
+
+func (s *unlockedSink) Record(mtype int, name string, value interface{}) {
 	curbuflen := len(s.buf)
 	s.buf = append(s.buf, s.prefix...)
 	s.buf = append(s.buf, name...)
@@ -107,7 +122,14 @@ func (s *statsdSink) Record(mtype int, name string, value interface{}) {
 	s.flushIfBufferFull(curbuflen)
 }
 
-func (s *statsdSink) RecordNumeric64(mtype int, name string, value num64.Numeric64) {
+// Record a Numeric64 value with the sink
+func (s *Sink) RecordNumeric64(mtype int, name string, value num64.Numeric64) {
+	s.mu.Lock()
+	s.unlockedSink.RecordNumeric64(mtype, name, value)
+	s.mu.Unlock()
+}
+
+func (s *unlockedSink) RecordNumeric64(mtype int, name string, value num64.Numeric64) {
 	curbuflen := len(s.buf)
 	s.buf = append(s.buf, s.prefix...)
 	s.buf = append(s.buf, name...)
@@ -120,17 +142,24 @@ func (s *statsdSink) RecordNumeric64(mtype int, name string, value num64.Numeric
 	s.flushIfBufferFull(curbuflen)
 }
 
-func (s *statsdSink) flushIfBufferFull(lastSafeLen int) {
+func (s *Sink) Flush() {
+	s.mu.Lock()
+	s.unlockedSink.Flush()
+	s.mu.Unlock()
+}
+
+func (s *unlockedSink) Flush() {
+	s.flush(0)
+}
+
+
+func (s *unlockedSink) flushIfBufferFull(lastSafeLen int) {
 	if len(s.buf) > s.max {
 		s.flush(lastSafeLen)
 	}
 }
 
-func (s *statsdSink) Flush() {
-	s.flush(0)
-}
-
-func (s *statsdSink) flush(n int) {
+func (s *unlockedSink) flush(n int) {
 	if len(s.buf) == 0 {
 		return
 	}
@@ -139,7 +168,12 @@ func (s *statsdSink) flush(n int) {
 	}
 
 	// Trim the last \n, StatsD does not like it.
-	s.out.Write(s.buf[:n-1])
+	if s.strip {
+		s.out.Write(s.buf[:n-1])
+	} else {
+		s.out.Write(s.buf[:n])
+	}
+	
 
 	if n < len(s.buf) {
 		copy(s.buf, s.buf[n:])
@@ -147,7 +181,7 @@ func (s *statsdSink) flush(n int) {
 	s.buf = s.buf[:len(s.buf)-n]
 }
 
-func (s *statsdSink) appendType(t int) {
+func (s *unlockedSink) appendType(t int) {
 	switch t {
 	case metric.MeterGauge:
 		s.buf = append(s.buf, 'g')
@@ -161,7 +195,7 @@ func (s *statsdSink) appendType(t int) {
 	}
 }
 
-func (s *statsdSink) appendNumeric64(v num64.Numeric64) {
+func (s *unlockedSink) appendNumeric64(v num64.Numeric64) {
 	switch v.Type {
 	case num64.Uint64:
 		s.buf = strconv.AppendUint(s.buf, v.Uint64(), 10)
@@ -172,7 +206,7 @@ func (s *statsdSink) appendNumeric64(v num64.Numeric64) {
 	}
 }
 
-func (s *statsdSink) appendNumber(v interface{}) {
+func (s *unlockedSink) appendNumber(v interface{}) {
 	switch n := v.(type) {
 	case int:
 		s.buf = strconv.AppendInt(s.buf, int64(n), 10)
