@@ -67,11 +67,16 @@ func (f *flusher) stop() {
 func (f *flusher) setInterval(d time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.ftype != flusherTypeFixed {
+	if f.ftype != flusherTypeFixed { // actually an assert
+		if f.kickChan == nil {
+			f.kickChan = make(chan struct{}, 1)
+		}
 		f.interval = d
+		// book an interval consideration
 		select {
 		case f.kickChan <- struct{}{}:
 		default:
+			// already booked
 		}
 	}
 }
@@ -89,7 +94,9 @@ func (f *flusher) rundyn() {
 		f.ftype = flusherTypeDynamic
 	}
 
-	f.kickChan = make(chan struct{})
+	if f.kickChan == nil {
+		f.kickChan = make(chan struct{}, 1)
+	}
 	f.mu.Unlock()
 
 	var ticker *time.Ticker

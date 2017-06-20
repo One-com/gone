@@ -51,7 +51,6 @@ func Default() *Client {
 // If sink == nil, the client will not emit metrics until a Sink is set using
 // SetSink.
 func NewClient(sink Sink, opts ...MOption) (client *Client) {
-
 	client = &Client{}
 	client.done = new(sync.WaitGroup)
 	client.flushers = make(map[time.Duration]*flusher)
@@ -133,7 +132,7 @@ func (c *Client) Start() {
 
 	for _, f := range c.flushers {
 		c.done.Add(1)
-		f.run(c.done)
+		go f.run(c.done)
 	}
 
 	c.running = true
