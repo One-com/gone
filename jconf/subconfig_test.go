@@ -44,7 +44,6 @@ func initSimpleSubModule(cfg SubConfig) (err error) {
 	return
 }
 
-
 func initSubModuleNoPointer(cfg SubConfig) (err error) {
 	var jc ModuleConfig
 	err = cfg.ParseInto(&jc)
@@ -124,7 +123,7 @@ func TestSubConfigNoPointer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Indent error: %s", err)
 	}
-	
+
 	expected := `{
     "A": "app",
     "S": {
@@ -192,8 +191,7 @@ func TestFull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Module Config parsing failed: %s", err.Error())
 	}
-	
-	
+
 	var out bytes.Buffer
 	b, err := json.Marshal(cfg)
 	if err != nil {
@@ -297,7 +295,7 @@ func TestMandatoryNilSubConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Indent error: %s", err)
 	}
-	
+
 	expected := `{
     "A": "app",
     "S": null
@@ -307,7 +305,7 @@ func TestMandatoryNilSubConfig(t *testing.T) {
 	if output != expected {
 		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
 	}
-	
+
 }
 
 func TestOptionalNilSubConfig(t *testing.T) {

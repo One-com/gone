@@ -3,12 +3,12 @@ package jconf
 import (
 	"bytes"
 	"encoding/json"
-	"testing"
 	"fmt"
+	"testing"
 )
 
 type DurConfig struct {
-	Delay Duration `json:"delay"`
+	Delay     Duration `json:"delay"`
 	NanoDelay Duration `json:"nanodelay"`
 }
 
@@ -21,7 +21,6 @@ var outdata = `{
     "delay": "17s",
     "nanodelay": "31µs"
 }`
-
 
 func TestDuration(t *testing.T) {
 
@@ -46,7 +45,7 @@ func TestDuration(t *testing.T) {
 	}
 
 	result := out.String()
-	if  result != outdata {
+	if result != outdata {
 		fmt.Println(result)
 		t.Fail()
 	}
