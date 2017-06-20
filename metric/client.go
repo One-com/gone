@@ -289,7 +289,7 @@ func RegisterHistogram(name string, opts ...MOption) Histogram {
 
 //--------------------------------------------------------------
 
-// AdhocCounter creates an ad-hoc counter metric event.
+// AdhocCount creates an ad-hoc counter metric event.
 // If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) AdhocCount(name string, val int, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterCounter, name, num64.FromInt64(int64(val)), flush)
@@ -301,7 +301,7 @@ func (c *Client) AdhocGauge(name string, val uint64, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterGauge, name, num64.FromUint64(val), flush)
 }
 
-// AdhocTimer creates an ad-hoc timer metric event.
+// AdhocTime creates an ad-hoc timer metric event.
 // If flush is true, the sink will be instructed to flush data immediately
 func (c *Client) AdhocTime(name string, d time.Duration, flush bool) {
 	val := d.Nanoseconds() / int64(1000000)
@@ -322,7 +322,7 @@ func (c *Client) Mark(name string) {
 
 //--------------------------------------------------------------
 
-// AdhocCounter creates an ad-hoc counter metric event at the default client.
+// AdhocCount creates an ad-hoc counter metric event at the default client.
 // If flush is true, the sink will be instructed to flush data immediately
 func AdhocCount(name string, val int, flush bool) {
 	defaultClient.AdhocCount(name, val, flush)
@@ -334,7 +334,7 @@ func AdhocGauge(name string, val uint64, flush bool) {
 	defaultClient.AdhocGauge(name, val, flush)
 }
 
-// AdhocTimer creates an ad-hoc timer metric event at the default client.
+// AdhocTime creates an ad-hoc timer metric event at the default client.
 // If flush is true, the sink will be instructed to flush data immediately
 func AdhocTime(name string, d time.Duration, flush bool) {
 	defaultClient.AdhocTime(name, d, flush)
