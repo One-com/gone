@@ -32,9 +32,9 @@ If you do:
 ```go
 {
     client := metric.NewClient(sink)
-	counter := client.RegisterCounter("name")
-	counter.Inc(1)
-	counter.Inc(1)
+    counter := client.RegisterCounter("name")
+    counter.Inc(1)
+    counter.Inc(1)
 }
 ```
 
@@ -44,8 +44,8 @@ On the other hand, if you do:
 
 ```go
 {
-	client.AdhocCount("name",1, false)
-	client.AdhocCount("name",1, true)
+    client.AdhocCount("name",1, false)
+    client.AdhocCount("name",1, true)
 }
 ```
 
