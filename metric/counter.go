@@ -12,25 +12,19 @@ type Counter struct {
 	val  int64
 }
 
-// NewCounter returns a server side maintained counter, but client side buffered counter.
+// NewCounter returns a client side buffered counter (a counter is a server side maintained value).
 // "Server side" meaning that it's reset to 0 every time it's sent to the server and the total
 // tally is kept on the server.
 // This poses the risk of the server-side absolute value to drift in case of increments
 // lost in transit. However, it also allows several distributed processes to update the same counter.
 // If you want to have a pure client side counter, use GaugeInt64
-func NewCounter(name string, opts ...MOption) *Counter {
-	return defaultClient.NewCounter(name, opts...)
-}
-
-// NewCounter returns a new named client side buffered metrics counter.
-func (c *Client) NewCounter(name string, opts ...MOption) *Counter {
+func NewCounter(name string) *Counter {
 	g := &Counter{name: name}
-	c.register(g, opts...)
 	return g
 }
 
-// Flush flushes the accumulated counter value to the supplied Sink
-func (c *Counter) Flush(s Sink) {
+// FlushReading flushes the accumulated counter value to the supplied Sink
+func (c *Counter) FlushReading(s Sink) {
 	val := atomic.SwapInt64(&c.val, 0)
 	if val != 0 {
 		n := num64.FromInt64(int64(val))
@@ -43,13 +37,9 @@ func (c *Counter) Name() string {
 	return c.name
 }
 
-//func (c *Counter) MeterType() int {
-//	return MeterCounter
-//}
-
 // Inc increased the counter by the supplied value
-func (c *Counter) Inc(val int64) {
-	atomic.AddInt64(&c.val, val)
+func (c *Counter) Inc(i int64) {
+	atomic.AddInt64(&c.val, i)
 }
 
 // Dec decreased the counter by the supplied value

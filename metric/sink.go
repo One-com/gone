@@ -2,13 +2,7 @@ package metric
 
 import "github.com/One-com/gone/metric/num64"
 
-// Sink is a sink for metrics data which methods are guaranteed to be called
-// synchronized. Thus it can keep state like buffers without locking
-// metric Client should Record*() to a Sink.
-// The idea is that the Sink in principle needs to be go-routine safe,
-// but Sink.Record*() will be called synchronized and only from one go-routine, so you can spare
-// the synchronization in the Record*() implementation it self if the Sink can
-// be called upon to Clone a new instance for each go-routine using the sink.
+// Sink is a sink for metrics data which methods need to be go-routine safe
 type Sink interface {
 	// Record a named value of any time with the Sink
 	Record(mtype int, name string, value interface{})
@@ -20,19 +14,20 @@ type Sink interface {
 	// not being able to guarantee the values can be stack allocated.
 	RecordNumeric64(mtype int, name string, value num64.Numeric64)
 
-	// Flush flushes the record values from Sink buffers.
+	// Flush flushes the record values from the program internal Sink buffers.
 	Flush()
 }
 
-// SinkFactory is the interface of objects returned to the user by sink implementations.
-// It serves to be able for gone/metric to create new Sink objects which can be called.
-// concurrently under external locking.
+// UnlockedSink implmentors can return a Sink which does not need to protect it self
+// against access from multiple go-routines.
+// This is used by flushing go-routines to save a lot of locking when flushing metric
+// event buffers to the Sink.
 // The returned Sink is guaranteed to only be called from one go-routine under a lock.
 // This allows a sink implementation to avoid using several layers of locks.
-// A sink implementation can chose not to exploit this and a simple SinkFactory can
+// A sink implementation can chose not to exploit this and not implement the interface or
 // just return it self as a Sink an do locking on all access.
-type SinkFactory interface {
-	Sink() Sink
+type unlockedSink interface {
+	UnlockedSink() Sink
 }
 
 // Flushers are created with this sink which just throws away data
@@ -40,7 +35,6 @@ type SinkFactory interface {
 // It's the user responsibility to not generate metrics before setting a sink if this
 // is not wanted.
 type nilSink struct{}
-type nilSinkFactory struct{}
 
 func (n *nilSink) Record(mtype int, name string, value interface{}) {
 }
@@ -49,8 +43,4 @@ func (n *nilSink) RecordNumeric64(mtype int, name string, value num64.Numeric64)
 }
 
 func (n *nilSink) Flush() {
-}
-
-func (n *nilSinkFactory) Sink() Sink {
-	return &nilSink{}
 }
