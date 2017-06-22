@@ -8,8 +8,8 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 	"sync"
+	"time"
 )
 
 // Option is the type of configuration options for the statsd sink factory.
@@ -20,14 +20,14 @@ type unlockedSink struct {
 	max    int
 	prefix string
 	buf    []byte
-	strip bool
+	strip  bool
 }
 
 // Sink is a go-routine safe version of a Statsd sink.
 // Call UnlockedSink() to get a faster, but not go-routine safe Sink.
 type Sink struct {
 	unlockedSink
-	mu     sync.Mutex
+	mu sync.Mutex
 }
 
 // Buffer sets the package size with which writes to the underlying io.Writer (often an UDPConn)
@@ -83,7 +83,7 @@ func New(opts ...Option) (sink metric.Sink, err error) {
 	}
 
 	sink = s
-	
+
 	return
 }
 
@@ -152,7 +152,6 @@ func (s *unlockedSink) Flush() {
 	s.flush(0)
 }
 
-
 func (s *unlockedSink) flushIfBufferFull(lastSafeLen int) {
 	if len(s.buf) > s.max {
 		s.flush(lastSafeLen)
@@ -173,7 +172,6 @@ func (s *unlockedSink) flush(n int) {
 	} else {
 		s.out.Write(s.buf[:n])
 	}
-	
 
 	if n < len(s.buf) {
 		copy(s.buf, s.buf[n:])

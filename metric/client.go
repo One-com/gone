@@ -256,6 +256,11 @@ func (c *Client) RegisterHistogram(name string, opts ...MOption) Histogram {
 	return meter
 }
 
+func (c *Client) RegisterSet(name string, opts ...MOption) *Set {
+	meter := NewSet(name)
+	c.Register(meter, opts...)
+	return meter
+}
 
 //--------------------------------------------------------------
 
@@ -314,6 +319,12 @@ func (c *Client) AdhocSample(name string, val int64, flush bool) {
 	c.defaultFlusher.RecordNumeric64(MeterHistogram, name, num64.FromInt64(int64(val)), flush)
 }
 
+// AdhocSetMember creates an ad-hoc set membership event.
+// If flush is true, the sink will be instructed to flush data immediately
+func (c *Client) AdhocSetMember(name string, member string, flush bool) {
+	c.defaultFlusher.Record(MeterSet, name, member, flush)
+}
+
 // Mark - send a ad-hoc zero histogram event immediately to allow the server side to indicate a unique event happened. This equivalent to calling Sample(name, 0, true) and can be used as a poor mans way to make qualitative events to be marked in the overall view of metrics. Like "process restart". Graphical views might allow you to draw these as special marks. For some sinks (like statsd) there's not dedicated way to send such events.
 // Mark is equivalent to AdhocSample(name, 0, true)
 func (c *Client) Mark(name string) {
@@ -344,6 +355,12 @@ func AdhocTime(name string, d time.Duration, flush bool) {
 // If flush is true, the sink will be instructed to flush data immediately
 func AdhocSample(name string, val int64, flush bool) {
 	defaultClient.AdhocSample(name, val, flush)
+}
+
+// AdhocSetMember generates an ad-hoc set membership event with the default client.
+// If flush is true, the sink will be instructed to flush data immediately
+func AdhocSetMember(name string, member string, flush bool) {
+	defaultClient.AdhocSetMember(name, member, flush)
 }
 
 // Mark - send a ad-hoc zero histogram event at the default client. - see Client.Mark()

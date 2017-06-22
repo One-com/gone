@@ -4,8 +4,8 @@ import (
 	"github.com/One-com/gone/metric"
 	"github.com/One-com/gone/metric/sink/statsd"
 	"log"
-	"time"
 	"os"
+	"time"
 )
 
 func ExampleNew() {
@@ -24,6 +24,7 @@ func ExampleNew() {
 	counter := metric.NewCounter("counter")
 	histo := metric.NewHistogram("histo")
 	timer := metric.NewTimer("timer")
+	set := metric.NewSet("set")
 
 	timer.Sample(time.Second)
 	timer.Sample(time.Millisecond)
@@ -31,11 +32,14 @@ func ExampleNew() {
 	histo.Sample(123456)
 	counter.Inc(2)
 	counter.Inc(3)
+	set.Add("member")
+	set.Add("member")
 
 	timer.FlushReading(sink)
 	gauge.FlushReading(sink)
 	counter.FlushReading(sink)
 	histo.FlushReading(sink)
+	set.FlushReading(sink)
 	sink.Flush()
 	// Output:
 	// prefix.timer:1000|ms
@@ -43,4 +47,5 @@ func ExampleNew() {
 	// prefix.gauge:17|g
 	// prefix.counter:5|c
 	// prefix.histo:123456|ms
+	// prefix.set:member|s
 }
