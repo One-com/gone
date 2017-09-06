@@ -62,6 +62,14 @@ type roundRobinUpstream struct {
 	pinKeyFunc     PinKeyFunc
 	cache          Cache
 	pinttl         time.Duration
+	evcbf          func(Event)
+}
+
+// Event reports named event with the upstream pool via a callback function.
+// Currently named events: "quarantine", "retrying"
+type Event struct {
+	Name string
+	Target *url.URL
 }
 
 // RROption is an option function configuring a Round Robin VirtualUpstream
@@ -103,6 +111,14 @@ func PinRequestsWith(cache Cache, ttl time.Duration, f PinKeyFunc) RROption {
 		rr.pinKeyFunc = f
 		rr.cache = cache
 		rr.pinttl = ttl
+	})
+}
+
+// EventCallback can be set to notify the application about changes to the upstream
+// pool. This can be used for logging when a server is quarantined.
+func EventCallback(f func(Event)) RROption {
+	return RROption(func(rr *roundRobinUpstream) {
+		rr.evcbf = f
 	})
 }
 
@@ -151,6 +167,9 @@ func (u *roundRobinUpstream) Update(inctx vtransport.RoundTripContext, err error
 	fails := u.targets[ctx.idx].fails
 	if u.maxFails != 0 && fails >= u.maxFails {
 		// mark server down
+		if u.evcbf != nil {
+			u.evcbf(Event{Name: "quarantine", Target:  u.targets[ctx.idx].URL})
+		}
 		u.targets[ctx.idx].down = true
 		u.targets[ctx.idx].when = time.Now()
 	}
@@ -214,6 +233,9 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 
 		if time.Now().Sub(u.targets[next].when) > u.quarantineTime {
 			// We found a sick server having done its Quarantine
+			if u.evcbf != nil {
+				u.evcbf(Event{Name: "retrying", Target:  u.targets[ctx.idx].URL})
+			}
 			u.targets[next].down = false
 			break
 		}
@@ -227,7 +249,7 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 		}
 	}
 	u.smu.Unlock()
-	//fmt.Println("NEXT:", next)
+
 	ctx.idx = next
 	ctx.current = u.targets[next].URL
 	out = ctx
