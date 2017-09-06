@@ -10,6 +10,8 @@ import (
 	"os"
 	"sync"
 	"time"
+	"strings"
+	"unicode/utf8"
 )
 
 // Formatters are a special kind of Handlers,
@@ -294,11 +296,19 @@ func (f *stdformatter) Log(e Event) error {
 	return err
 }
 
+// strings.Map func for removing invalid logfmt key chars from a key
+var prunef = func(r rune) rune {
+	if r <= ' ' || r == '=' || r == '"' || r == utf8.RuneError {
+		return -1
+	}
+	return r
+}
+
 // No reason to create another byte.Buffer when we already have one.
 // So let's pass it to a custom version of MarshalKeyvals()
-func marshalKeyvals(w io.Writer, keyvals ...interface{}) error {
+func marshalKeyvals(w io.Writer, keyvals ...interface{}) {
 	if len(keyvals) == 0 {
-		return nil
+		return
 	}
 	enc := logfmt.NewEncoder(w)
 	for i := 0; i < len(keyvals); i += 2 {
@@ -307,18 +317,32 @@ func marshalKeyvals(w io.Writer, keyvals ...interface{}) error {
 			v = l.evaluate()
 		}
 		err := enc.EncodeKeyval(k, v)
-		if err == logfmt.ErrUnsupportedKeyType {
-			continue
-		}
-		if _, ok := err.(*logfmt.MarshalerError); ok || err == logfmt.ErrUnsupportedValueType {
-			v = err
-			err = enc.EncodeKeyval(k, v)
+		if err != nil {
+			// Try save the error
+			switch err {
+			case logfmt.ErrUnsupportedKeyType, logfmt.ErrNilKey:
+				continue // Can't save - skip this pair
+			case logfmt.ErrInvalidKey:
+				if key, ok := k.(string); ok {
+					// remove invalid chars and try again
+					key = strings.Map(prunef, key)
+					err = enc.EncodeKeyval(key, v)
+				} else {
+					continue // can't save this key
+				}
+			default:
+				// value related error, replace with string form of error
+				if _, ok := err.(*logfmt.MarshalerError); ok || err == logfmt.ErrUnsupportedValueType {
+					v = err
+					err = enc.EncodeKeyval(k, v)
+				}
+			}
 		}
 		if err != nil {
-			return err
+			enc.EncodeKeyval("ERROR", "ERROR")
 		}
 	}
-	return nil
+	return
 }
 
 func (f *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.Time, name string, file string, line int) {
