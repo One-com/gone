@@ -149,7 +149,7 @@ RETRIES:
 		}
 
 		req.URL.Scheme, req.URL.Host = context.Target()
-		//fmt.Println("USING:",req.URL.Scheme, req.URL.Host)
+
 		resp, err = vt.Transport.RoundTrip(req)
 		up.Update(context, err)
 		if err == nil { // success return response.
@@ -160,7 +160,6 @@ RETRIES:
 			break RETRIES
 		}
 		if !bodywrapper.CanRetry() {
-			//fmt.Println("Can't retry")
 			break RETRIES
 		}
 	}
