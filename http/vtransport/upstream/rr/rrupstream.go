@@ -234,7 +234,7 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 		if time.Now().Sub(u.targets[next].when) > u.quarantineTime {
 			// We found a sick server having done its Quarantine
 			if u.evcbf != nil {
-				u.evcbf(Event{Name: "retrying", Target:  u.targets[ctx.idx].URL})
+				u.evcbf(Event{Name: "retrying", Target:  u.targets[next].URL})
 			}
 			u.targets[next].down = false
 			break
