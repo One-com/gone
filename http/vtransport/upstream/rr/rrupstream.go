@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sync"
 	"time"
+	"math/rand"
 )
 
 type rrcontext struct {
@@ -41,9 +42,9 @@ type Cache interface {
 
 type target struct {
 	*url.URL
-	fails int
-	when  time.Time
-	down  bool
+	fails int       // number of fails recorded for this target
+	when  time.Time // time of last fail
+	down  bool      // marked as down, waiting for quarantine to expire
 }
 
 // PinKeyFunc is a function which, based on a request, returns a string as
@@ -56,6 +57,7 @@ type roundRobinUpstream struct {
 	idx            int
 	smu            sync.Mutex
 	maxFails       int
+	burstGrace     time.Duration
 	quarantineTime time.Duration
 	targets        []target
 	ctxPool        *sync.Pool
@@ -87,8 +89,21 @@ func Targets(urls ...*url.URL) RROption {
 	})
 }
 
+// BurstFailGrace sets a duration for counting multiple errors as one.
+// This prevents backend servers which in case of an isolated incidence
+// will kill multiple HTTP request from reaching the MaxFails limit immediately.
+// Fails not counted due to BurstFailGrace do not count as successes though.
+func BurstFailGrace(t time.Duration) RROption {
+	return RROption(func(rr *roundRobinUpstream) {
+		rr.burstGrace = t
+	})
+}
+
 // MaxFails configures how many times a backend server is allowed to fail
-// before being put into quarantine.
+// before being put into quarantine. As fails are recorded for a backend
+// it's picked less often with a chance proportional to MaxFails.
+// A MaxFail of zero (default), means don't quarantine backend targets and don't
+// weigh targets with fails lower when selecting next target.
 func MaxFails(m int) RROption {
 	return RROption(func(rr *roundRobinUpstream) {
 		rr.maxFails = m
@@ -149,29 +164,58 @@ func (u *roundRobinUpstream) ReleaseContext(inctx vtransport.RoundTripContext) {
 
 // Update implements the VirtualUpstream interface.
 func (u *roundRobinUpstream) Update(inctx vtransport.RoundTripContext, err error) {
+
 	u.smu.Lock()
-	defer u.smu.Unlock()
+
 	ctx := inctx.(*rrcontext)
 	if err == nil {
 		if ctx.pinkey != "" {
 			u.cache.Set(ctx.pinkey, ctx.idx, u.pinttl)
 		}
-		// reset fail counter
-		u.targets[ctx.idx].fails = 0
+		// lower the fail counter
+		if u.targets[ctx.idx].fails > 0 {
+			u.targets[ctx.idx].fails--
+		}
+		u.smu.Unlock()
 		return
 	}
+
+	// An error reported, we need to decide on punishing the backend.
+
+	// First removing any pinning.
 	if ctx.pinkey != "" {
 		u.cache.Delete(ctx.pinkey)
 	}
-	u.targets[ctx.idx].fails++
-	fails := u.targets[ctx.idx].fails
-	if u.maxFails != 0 && fails >= u.maxFails {
-		// mark server down
-		if u.evcbf != nil {
-			u.evcbf(Event{Name: "quarantine", Target:  u.targets[ctx.idx].URL})
+
+	var ev Event // possible event to report
+
+	// If we are counting fails to decide target status:
+	if u.maxFails != 0  {
+		tnow := time.Now()
+
+		// Count the error if sufficiently long time since last error to not be a burst
+		if tnow.Sub(u.targets[ctx.idx].when) > u.burstGrace {
+			u.targets[ctx.idx].fails++
+			u.targets[ctx.idx].when = tnow
+
+			// Decide whether to completely quarantine this backend target
+			fails := u.targets[ctx.idx].fails
+			if fails >= u.maxFails {
+				// mark server down
+				ev = Event{Name: "quarantine", Target:  u.targets[ctx.idx].URL}
+				u.targets[ctx.idx].down = true
+			}
+		} else {
+			// We ignore this fail as a part of a burst.
+			// Don't record the timestamp in order to not keep pushing the grace period.
+			ev = Event{Name: "burst", Target:  u.targets[ctx.idx].URL}
 		}
-		u.targets[ctx.idx].down = true
-		u.targets[ctx.idx].when = time.Now()
+	}
+	u.smu.Unlock()
+
+	// Report a quarantine event if any - don't do this under mutex lock
+	if u.evcbf != nil && ev.Name != "" {
+		u.evcbf(ev)
 	}
 }
 
@@ -224,20 +268,30 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 
 	// Start search to find a healthy server
 	next := start
+	var ev Event
 	u.smu.Lock()
 	for {
 		if !u.targets[next].down {
 			// We found a healthy server
-			break
-		}
-
-		if time.Now().Sub(u.targets[next].when) > u.quarantineTime {
-			// We found a sick server having done its Quarantine
-			if u.evcbf != nil {
-				u.evcbf(Event{Name: "retrying", Target:  u.targets[next].URL})
+			fails := u.targets[next].fails
+			if u.maxFails == 0 {
+				break // Don't care about the number of fails - use the target
+			} else {
+				// - consider fail/maxfail ratio to decide whether to use it
+				if fails == 0 || fails <= rand.Intn(u.maxFails) {
+					// use the target, - should always use for fails==0
+					break
+				}
 			}
-			u.targets[next].down = false
-			break
+			// Else we will try the next target
+		} else {
+			// The target is down, don't let it in unless quarantine time has been exceeded.
+			if time.Now().Sub(u.targets[next].when) > u.quarantineTime {
+				// We found a sick server having done its Quarantine
+				ev = Event{Name: "retrying", Target:  u.targets[next].URL}
+				u.targets[next].down = false
+				break
+			}
 		}
 
 		// Try next server in pool (Round Robin style)
@@ -246,9 +300,15 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 			// We've tried all servers
 			// But don't fail without trying something
 			ctx.wrap++
+			break
 		}
 	}
 	u.smu.Unlock()
+
+	// report events - don't do this under mutex lock
+	if u.evcbf != nil && ev.Name != "" {
+		u.evcbf(ev)
+	}
 
 	ctx.idx = next
 	ctx.current = u.targets[next].URL
