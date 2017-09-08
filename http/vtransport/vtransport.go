@@ -93,7 +93,6 @@ func Retries(retries int, maxRepeat int, nonIdempotent bool) RetryPolicy {
 			return false
 		}
 		if ctx.Exhausted() > maxRepeat {
-			//fmt.Println("Exausted")
 			return false
 		}
 		if nonIdempotent || isIdempotent(req.Method) {
@@ -104,7 +103,6 @@ func Retries(retries int, maxRepeat int, nonIdempotent bool) RetryPolicy {
 				return true
 			}
 		}
-		//fmt.Println("Non Idempotent")
 		return false
 	}
 }
@@ -113,7 +111,7 @@ func Retries(retries int, maxRepeat int, nonIdempotent bool) RetryPolicy {
 // VirtualUpstream implementations to do the RoundTripper functionality if the URL scheme is "vt" and will consult the
 // provided RetryPolicy to decide whether to retry HTTP requests which fails.
 type VirtualTransport struct {
-	http.Transport
+	*http.Transport
 	Upstreams   map[string]VirtualUpstream
 	RetryPolicy RetryPolicy
 }

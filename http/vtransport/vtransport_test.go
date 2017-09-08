@@ -101,7 +101,7 @@ func clientAbuse(t *testing.T) {
 	}
 
 	tr := &vtransport.VirtualTransport{
-		Transport: http.Transport{
+		Transport: &http.Transport{
 			DisableKeepAlives: true,
 		},
 		RetryPolicy: vtransport.Retries(3, 0, true),
