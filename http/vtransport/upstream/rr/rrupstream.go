@@ -1,6 +1,7 @@
 package rr
 
 import (
+	"context"
 	"errors"
 	"github.com/One-com/gone/http/vtransport"
 	"net/http"
@@ -64,6 +65,7 @@ type roundRobinUpstream struct {
 	pinKeyFunc     PinKeyFunc
 	cache          Cache
 	pinttl         time.Duration
+	configured     chan struct{} // closed when all options have been applied
 	evcbf          func(Event)
 }
 
@@ -72,6 +74,7 @@ type roundRobinUpstream struct {
 type Event struct {
 	Name string
 	Target *url.URL
+	Err error
 }
 
 // RROption is an option function configuring a Round Robin VirtualUpstream
@@ -87,6 +90,99 @@ func Targets(urls ...*url.URL) RROption {
 			rr.targets = append(rr.targets, target{URL: u})
 		}
 	})
+}
+
+// HealthCheck configures a periodic health check callback.
+// The provided checkfunc will be called with the URL of the backend target to check.
+// checkfunc can perform any activity it wish and returning anything but a nil error,
+// will mark the backend as down.
+// The simple check would be to adjust the target URL to add a Request-URI and perform
+// an HTTP request to verify it's up.
+// If this check fails it will keep the target from being picked by the Round Robin algorithm until
+// the next health check.
+// The health check will run when startfunc is called until the context is canceled.
+// This option will return nil if interval is zero.
+func HealthCheck(interval time.Duration, checkfunc func(*url.URL) error) (option RROption, startfunc func(context.Context) error){
+
+	var upstream *roundRobinUpstream
+
+	if interval == 0 {
+		return // provoke an error early by returning nil RROption
+	}
+
+	proceed := make(chan struct{})
+
+	option = RROption(func(rr *roundRobinUpstream) {
+		upstream = rr
+		close(proceed)
+	})
+
+	startfunc = func(ctx context.Context) error {
+
+		// don't proceed until we know which upstream to monitor
+		select {
+		case <-ctx.Done():
+			close(proceed)
+			return nil
+		case <-proceed:
+		}
+
+		// We now know the upstream, but we're not sure it's fully configured.
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-upstream.configured:
+			// don't monitor empty upstreams
+			if len(upstream.targets) == 0 {
+				return nil
+			}
+		}
+
+		// Now we have a fully configured upstream, start monitoring
+		ticker := time.NewTicker(interval)
+
+		HEALTHLOOP: for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				break HEALTHLOOP
+			case <-ticker.C:
+				// Run through all the backends, generate the URL, do the req.,
+				// check expect and update target status
+				for i := range upstream.targets {
+					var u url.URL
+					var ev Event
+					// copy the URL to local value.
+					u.Scheme = upstream.targets[i].URL.Scheme
+					u.Host   = upstream.targets[i].URL.Host
+
+					err := checkfunc(&u) // callee is allowed to modify u
+					if err != nil {
+						// Backend target has failed health check
+						// Mark it down now
+						upstream.mu.Lock()
+						upstream.targets[i].down = true
+						upstream.targets[i].when = time.Now().Add(interval)
+						upstream.mu.Unlock()
+						ev = Event{Name: "healthfail", Target: &u, Err: err}
+					} else {
+						// Yeah - it's alive. Put it back in the pool
+						// by making sure reasonable lower than maxFails
+						upstream.mu.Lock()
+						upstream.targets[i].down = false
+						upstream.targets[i].fails = upstream.maxFails / 2
+						upstream.mu.Unlock()
+					}
+					if upstream.evcbf != nil && ev.Name != "" {
+						upstream.evcbf(ev)
+					}
+				}
+			}
+		}
+		return nil
+	}
+
+	return
 }
 
 // BurstFailGrace sets a duration for counting multiple errors as one.
@@ -145,9 +241,11 @@ func NewRoundRobinUpstream(opts ...RROption) (*roundRobinUpstream, error) {
 			New: func() interface{} { return new(rrcontext) },
 		},
 	}
+	ret.configured = make(chan struct{})
 	for _, o := range opts {
 		o(ret)
 	}
+	close(ret.configured)
 	if len(ret.targets) == 0 {
 		return nil, errors.New("No targets")
 	}
