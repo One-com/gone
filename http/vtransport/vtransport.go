@@ -3,6 +3,7 @@ package vtransport
 import (
 	"fmt"
 	"net"
+	"context"
 	"net/http"
 )
 
@@ -137,24 +138,35 @@ func (vt *VirtualTransport) RoundTrip(req *http.Request) (resp *http.Response, e
 	}
 	req.Body = bodywrapper
 
-	var context RoundTripContext
+	var ctx RoundTripContext
 RETRIES:
 	for {
-		context, err = up.NextTarget(req, context)
+		ctx, err = up.NextTarget(req, ctx)
 		if err != nil {
-			up.ReleaseContext(context)
+			up.ReleaseContext(ctx)
 			return
 		}
 
-		req.URL.Scheme, req.URL.Host = context.Target()
+		req.URL.Scheme, req.URL.Host = ctx.Target()
 
 		resp, err = vt.Transport.RoundTrip(req)
-		up.Update(context, err)
-		if err == nil { // success return response.
-			up.ReleaseContext(context)
+		var uerr error
+		if err == context.Canceled {
+			// Don't tell the upstream about RoundTrip errors
+			// if it was actually the client canceling the request
+			// It is not to blame
+			uerr = nil
+		} else {
+			uerr = err
+		}
+		up.Update(ctx, uerr)
+		// We are satisfied by non-error or client cancellation
+		if uerr == nil { // success return response.
+			up.ReleaseContext(ctx)
+			// but return real error so caller know client canceled
 			return resp, err
 		}
-		if vt.RetryPolicy == nil || !vt.RetryPolicy(req, err, context) {
+		if vt.RetryPolicy == nil || !vt.RetryPolicy(req, err, ctx) {
 			break RETRIES
 		}
 		if !bodywrapper.CanRetry() {
@@ -162,6 +174,6 @@ RETRIES:
 		}
 	}
 	bodywrapper.CloseIfNeeded()
-	up.ReleaseContext(context)
+	up.ReleaseContext(ctx)
 	return resp, err
 }
