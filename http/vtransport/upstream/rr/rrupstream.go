@@ -1,6 +1,7 @@
 package rr
 
 import (
+	"fmt"
 	"context"
 	"errors"
 	"github.com/One-com/gone/http/vtransport"
@@ -37,6 +38,7 @@ func (rc *rrcontext) Exhausted() int {
 // to avoid moving requests too much around between backend servers.
 type Cache interface {
 	Set(key string, value int, ttl time.Duration)
+	// Get must return the value set, or negative if not found
 	Get(key string) (value int)
 	Delete(key string)
 }
@@ -55,6 +57,7 @@ type PinKeyFunc func(req *http.Request) string
 
 type roundRobinUpstream struct {
 	mu             sync.Mutex
+	id             string
 	idx            int
 	smu            sync.Mutex
 	maxFails       int
@@ -241,6 +244,7 @@ func NewRoundRobinUpstream(opts ...RROption) (*roundRobinUpstream, error) {
 			New: func() interface{} { return new(rrcontext) },
 		},
 	}
+	ret.id = fmt.Sprintf("%p", ret)
 	ret.configured = make(chan struct{})
 	for _, o := range opts {
 		o(ret)
@@ -317,7 +321,8 @@ func (u *roundRobinUpstream) Update(inctx vtransport.RoundTripContext, err error
 	}
 }
 
-func (u *roundRobinUpstream) step(in int) (out int) {
+// simply doing an increment module number of target hosts
+func (u *roundRobinUpstream) step(in int) (int) {
 	in++
 	if in >= len(u.targets) {
 		in = 0
@@ -340,9 +345,14 @@ func (u *roundRobinUpstream) NextTarget(req *http.Request, in vtransport.RoundTr
 		var pinkey string
 		if u.pinKeyFunc != nil {
 			pinkey = u.pinKeyFunc(req)
-			start = u.cache.Get(pinkey)
+			if pinkey != "" {
+				pinkey = u.id + pinkey // make pinkey private to this upstream
+				start = u.cache.Get(pinkey)
+			} else {
+				start = -1
+			}
 		}
-		if u.pinKeyFunc == nil || start == -1 {
+		if u.pinKeyFunc == nil || start < 0 {
 			// Pick the next overall server as starting point for search
 			u.mu.Lock()
 			start = u.step(u.idx)
