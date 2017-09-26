@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 )
 
 // MakeRecorder returns a RecordingResponseWriter which wraps around the
@@ -41,6 +42,8 @@ type RecordingResponseWriter interface {
 	http.Flusher
 	Status() int
 	Size() int
+	GetTimeStamp() time.Time
+	SetTimeStamp(time.Time)
 }
 
 // responseRecorder is wrapper of http.ResponseWriter that keeps track of its HTTP
@@ -49,12 +52,15 @@ type responseRecorder struct {
 	w      http.ResponseWriter
 	status int
 	size   int
+	ts     time.Time
 }
 
+// Header implements http.ResponseWriter
 func (l *responseRecorder) Header() http.Header {
 	return l.w.Header()
 }
 
+// Write implements http.ResponseWriter
 func (l *responseRecorder) Write(b []byte) (int, error) {
 	if l.status == 0 {
 		// The status will be StatusOK if WriteHeader has not been called yet
@@ -65,10 +71,29 @@ func (l *responseRecorder) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader implements http.ResponseWriter
 func (l *responseRecorder) WriteHeader(s int) {
 	l.w.WriteHeader(s)
 	l.status = s
 }
+
+// GetTimeStamp returns the timestamp
+// This can be used to store a starttime for a request and return it
+// after the request is done.
+// It is not go-routine safe.
+func (l *responseRecorder) GetTimeStamp() (tout time.Time) {
+	tout = l.ts
+	return
+}
+
+// SetTimeStamp sets a timestamp.
+// This can be used to store a starttime for a request and return it
+// after the request is done.
+// It is not go-routine safe.
+func (l *responseRecorder) SetTimeStamp(tin time.Time) {
+	l.ts = tin
+}
+
 
 // Status returns the http status of the written request.
 func (l *responseRecorder) Status() int {

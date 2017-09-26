@@ -116,6 +116,8 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		recorder := rrwriter.MakeRecorder(w)
 
 		t := time.Now()
+		recorder.SetTimeStamp(t)
+
 		pbuf := h.bufpool.Get().(*buffer)
 		logbuf := pbuf[:0]
 
@@ -145,6 +147,7 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		if h.af != nil {
 			recorder := rrwriter.MakeRecorder(w)
+			//recorder.SetTimeStamp(time.Now())
 			h.handler.ServeHTTP(recorder, req)
 			h.af(recorder)
 		} else {
