@@ -109,13 +109,14 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var out unsafe.Pointer
 	out = atomic.LoadPointer(&h.out)
 
+	t := time.Now()
+
 	if out != nil {
 
 		outw := *((*io.Writer)(out))
 
 		recorder := rrwriter.MakeRecorder(w)
 
-		t := time.Now()
 		recorder.SetTimeStamp(t)
 
 		pbuf := h.bufpool.Get().(*buffer)
@@ -147,7 +148,7 @@ func (h *logHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		if h.af != nil {
 			recorder := rrwriter.MakeRecorder(w)
-			//recorder.SetTimeStamp(time.Now())
+			recorder.SetTimeStamp(t)
 			h.handler.ServeHTTP(recorder, req)
 			h.af(recorder)
 		} else {
