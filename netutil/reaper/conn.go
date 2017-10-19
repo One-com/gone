@@ -12,20 +12,10 @@ import (
 	"net"
 	"sync/atomic"
 	"unsafe"
+	"time"
 )
 
-// IOActivityTimeout lets you toggle whether IOActivityTimeout is enabled
-// for a net.Conn.
-// It will work even if the net.Conn is wrapped as a *tls.Conn, but to do this
-// requires an unsafe conversion relying on the underlying net.Conn being the first
-// member of the tls.Conn struct.
-// This is sadly necessary since crypto/tls.Conn doesn't expose the underlying
-// net.Conn.
-// Go 1.8 supports getting to the underlying net.Conn through ClientHelloInfo.
-// That is however too late for this purpose.
-func IOActivityTimeout(c net.Conn, enable bool) (success bool, err error) {
-
-	var ioc *conn
+func reaperConn(c net.Conn) (ioc *conn) {
 
 	switch tc := c.(type) {
 	case *tls.Conn:
@@ -42,10 +32,64 @@ func IOActivityTimeout(c net.Conn, enable bool) (success bool, err error) {
 	default:
 		return
 	}
+	return
+}
 
-	err = ioActivityTimeout(ioc, enable)
-	if err == nil {
-		success = true
+// StartTimer allows to put a timer on a Conn, and via time.AfterFunc have a function called.
+// The provided afterfunc is called with the net.Conn created by this package - if any.
+// Meaning, that even if wrapped with TLS, calling Close() will close the underlying connection
+// regardless of TLS state.
+func StartTimer(c net.Conn, to time.Duration, afterfunc func(wrapped net.Conn)) {
+
+	ioc := reaperConn(c)
+
+	if ioc != nil {
+		f := func() {
+			afterfunc(ioc)
+		}
+
+		new := unsafe.Pointer(time.AfterFunc(to, f))
+		old := atomic.SwapPointer(&(ioc.timer), new)
+		t := (*time.Timer)(old)
+		if t != nil {
+			t.Stop()
+		}
+	}
+	return
+}
+
+// StopTimer stops any timer on the connection.
+// StopTimer is go-routine safe.
+func StopTimer(c net.Conn) {
+
+	ioc := reaperConn(c)
+	if ioc != nil {
+		up := atomic.SwapPointer(&(ioc.timer), unsafe.Pointer(nil))
+		if up != nil {
+			t := (*time.Timer)(up)
+			t.Stop()
+		}
+	}
+	return
+}
+
+// IOActivityTimeout lets you toggle whether IOActivityTimeout is enabled
+// for a net.Conn.
+// It will work even if the net.Conn is wrapped as a *tls.Conn, but to do this
+// requires an unsafe conversion relying on the underlying net.Conn being the first
+// member of the tls.Conn struct.
+// This is sadly necessary since crypto/tls.Conn doesn't expose the underlying
+// net.Conn.
+// Go 1.8 supports getting to the underlying net.Conn through ClientHelloInfo.
+// That is however too late for this purpose.
+func IOActivityTimeout(c net.Conn, enable bool) (success bool, err error) {
+
+	ioc := reaperConn(c)
+	if ioc != nil {
+		err = ioActivityTimeout(ioc, enable)
+		if err == nil {
+			success = true
+		}
 	}
 	return
 }
@@ -89,6 +133,7 @@ type conn struct {
 
 	ioActivityTimeoutEnabled atomicBool
 	next                     *conn
+	timer           unsafe.Pointer
 }
 
 func (c *conn) Read(b []byte) (rc int, err error) {

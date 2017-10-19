@@ -19,14 +19,19 @@ type listener struct {
 // NewIOActivityTimeoutListener wraps net.Listener with IOActivityTimeout functionality, so the accepted
 // connections can use IOActivityTimeout() to enable it.
 // The returned listener will not enable IOActivityTimeout per default.
+// A reaperInterval of zero disables reaper monitoring
 func NewIOActivityTimeoutListener(orig net.Listener, timeout, reaperInterval time.Duration) (l net.Listener) {
+
+	var maxReaperMiss = int64(-1) // default to no reaper
 
 	if timeout < reaperInterval {
 		timeout = reaperInterval
 	}
 
 	// The number of reaper runs without an activity update a connections is allowed to have.
-	maxReaperMiss := timeout.Nanoseconds() / reaperInterval.Nanoseconds()
+	if reaperInterval != 0 {
+		maxReaperMiss = timeout.Nanoseconds() / reaperInterval.Nanoseconds()
+	}
 
 	l = &listener{
 		Listener: orig,
@@ -44,17 +49,19 @@ func (l *listener) Accept() (rc net.Conn, err error) {
 	if err == nil {
 		ic := &conn{Conn: c}
 
-	HANDOFF:
-		for {
-			select {
-			case l.newChan <- ic:
-				break HANDOFF
-			default:
-				r := atomic.LoadUint32(&l.reapers)
-				if r < 2 {
-					atomic.AddUint32(&l.reapers, 1)
-					go reaper(ic, l.newChan, l.interval, l.maxMiss, &l.reapers)
+		if l.maxMiss != -1 {
+		HANDOFF:
+			for {
+				select {
+				case l.newChan <- ic:
 					break HANDOFF
+				default:
+					r := atomic.LoadUint32(&l.reapers)
+					if r < 2 {
+						atomic.AddUint32(&l.reapers, 1)
+						go reaper(ic, l.newChan, l.interval, l.maxMiss, &l.reapers)
+						break HANDOFF
+					}
 				}
 			}
 		}
