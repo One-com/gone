@@ -44,7 +44,7 @@ func newHTTPServer(handler http.HandlerFunc) (s *gonehttp.Server) {
 		Server:    s1,
 		Listeners: daemon.ListenerGroup{daemon.ListenerSpec{Addr: ":4321"}},
 	}
-	// Now a gone/http/goneserv.Server, expecting to be called upon to Listen()
+
 	return s3
 }
 
