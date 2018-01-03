@@ -31,6 +31,9 @@ type ConfigureFunc func() ([]srv.Server, []CleanupFunc, error)
 type ConfigFunc func() ([]Server, []CleanupFunc, error)
 
 var (
+	// Ensures only having one Run() invocation to protect
+	// the below channels.
+	runmu   sync.Mutex
 	// Permanent channels. Never closed
 	// If Run() is called again after exit there could be left over events on these.
 	// Normally Run() shouldn't be called again, but it can be useful in tests.
@@ -197,13 +200,20 @@ func Run(opts ...RunOption) (err error) {
 	//var first_mu sync.Mutex
 	firstConfigLoadDone := make(chan struct{})
 
+	// Don't proceed if there's an existing Run() with a running event handler.
+	runmu.Lock()
+	// make this function tied to the event handler go-routine (started below).
+	runwg := sync.WaitGroup{}
+	runwg.Add(1)
+	defer runwg.Wait()
+
 	// Event handler
 	// Even if gone/signals or other code serialized the signals, we don't know how they are wired up and
 	// they become async events to the daemon MainLoop again.
 	// We need to serialize any event affecting
 	// shutdown/restart here again to avoid Exit events arriving after a reload is in effect,
 	// but before the new Servers are running. That would loose the exit signal.
-	eventch := make(chan struct{})
+	eventch := make(chan struct{}) // a channel to tell the event loop handler to exit
 	go func() {
 		var firstConfigDoneOnce sync.Once
 	EVENTLOOP:
@@ -251,6 +261,9 @@ func Run(opts ...RunOption) (err error) {
 				} else {
 					// configuration failed.
 					srvmu.Lock()
+					if nextCancel == nil {
+						nextCancel = func() {}
+					}
 					configErr = err
 					srvmu.Unlock()
 					Log(LvlCRIT, fmt.Sprintf("Daemon reload: %s", configErr.Error()))
@@ -263,6 +276,9 @@ func Run(opts ...RunOption) (err error) {
 				break EVENTLOOP
 			}
 		}
+		// Release and allow Run() to be re-invoked
+		runwg.Done()
+		runmu.Unlock()
 	}()
 
 	// Load the initial config by asking event manager to load it
@@ -281,6 +297,7 @@ MainLoop:
 				err = configErr
 			}
 			srvmu.Unlock()
+			close(eventch) // This will cause the runmu to Unlock when the event handler to exit
 			return
 		}
 
@@ -330,7 +347,8 @@ MainLoop:
 
 		// Start serving the currently configured servers
 		if err = serve(runningContext, runningServer); err != nil {
-			return
+			gracefulExit = false // just exit on error
+			break MainLoop
 		}
 
 		/* Should we exit? */
@@ -345,14 +363,19 @@ MainLoop:
 		}
 	} // end MainLoop
 
-	Log(LvlNOTICE, "Exit mainloop")
+	if err != nil {
+		Log(LvlERROR, fmt.Sprintf("Exit mainloop with error: %s", err.Error()))
+	} else {
+		Log(LvlNOTICE, "Exit mainloop")
+	}
 	if gracefulExit {
 		srvmu.Lock()
 		Log(LvlNOTICE, "Waiting for graceful shutdown")
 		recordShutdown(revision, serverEnsemble{servers, nil}, cleanups, shutdownTimeout)
 		srvmu.Unlock()
 	}
-	close(eventch)
+
+	close(eventch) // This will cause the runmu to Unlock when the event handler to exit
 	return
 }
 
