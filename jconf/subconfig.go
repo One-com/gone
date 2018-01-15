@@ -36,6 +36,16 @@ type MandatorySubConfig subConfig
 // if there is no JSON data.
 var ErrEmptySubConfig = errors.New("Missing mandatory SubConfig")
 
+// DefaultSubConfig returns a placeholder value which can be assigned to
+// any field which is an OptionalSubConfig to indicate that if the value
+// is missing it should be assumed to be an empty JSON object ("{}") and
+// passed into any ParseInto() call on the SubConfig.
+// This allows for default values to be specified for entire subtrees of
+// the JSON
+func DefaultSubConfig() *OptionalSubConfig {
+	return &OptionalSubConfig{RawMessage: []byte("{}")}
+}
+
 func parse(j json.RawMessage, i interface{}) (o interface{}, err error) {
 
 	switch t := i.(type) {

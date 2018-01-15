@@ -349,3 +349,85 @@ func TestOptionalNilSubConfig(t *testing.T) {
 		t.Errorf("Unexpected output:\n%s\nexpected:\n%s\n", output, expected)
 	}
 }
+
+// --------------------- DefaultSubConfig -------------------------
+
+type App2Config struct {
+	A string
+	B string
+	C *OptionalSubConfig
+}
+
+type Module2Config struct {
+	X string
+	Y *OptionalSubConfig
+}
+
+type ExtraConfig struct {
+	Q string
+}
+
+func ExampleDefaultSubConfig() {
+
+	// B is the only value explicitly configured
+	var confdata = `
+{
+  "B" : "bar"
+}`
+
+	// main application conf object
+	cfg := &App2Config{
+		A: "foo",
+		C: DefaultSubConfig(),
+	}
+
+	buf := bytes.NewBufferString(confdata)
+
+	err := ParseInto(buf, &cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	mcfg := &Module2Config{
+		X: "xxx",
+		Y: DefaultSubConfig(),
+	}
+
+	// Let our submodule parse its own config
+	err = cfg.C.ParseInto(&mcfg)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+
+	ecfg := &ExtraConfig{Q: "qqq"}
+
+	// ... and the extra config
+	err = mcfg.Y.ParseInto(&ecfg)
+	if err != nil {
+		log.Fatalf("Module Config parsing failed: %s", err.Error())
+	}
+
+	var out bytes.Buffer
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		log.Fatalf("Marshal error: %s", err)
+	}
+
+	err = json.Indent(&out, b, "", "    ")
+	if err != nil {
+		log.Fatalf("Indent error: %s", err)
+	}
+	out.WriteTo(os.Stdout)
+
+	// Output:
+	// {
+	//     "A": "foo",
+	//     "B": "bar",
+	//     "C": {
+	//         "X": "xxx",
+	//         "Y": {
+	//             "Q": "qqq"
+	//         }
+	//     }
+	// }
+}
