@@ -55,7 +55,7 @@ func RegisterCommand(name string, cmd Command) {
 
 // a connection and the cmdline it is currently executing
 type persistentConn struct {
-	net.Conn
+	Conn    *net.UnixConn
 	cmdline []byte
 }
 
@@ -75,7 +75,10 @@ type Server struct {
 	// The command to cause the server to close a connection.
 	QuitCommand string
 
-	l net.Listener
+	// The command to cause the server to close a connection after replying
+	OneshotCommand string
+
+	l *net.UnixListener
 
 	wg sync.WaitGroup
 	// connections which need to be served
@@ -173,7 +176,13 @@ func (s *Server) Listen() (err error) {
 			if err != nil {
 				return
 			}
-			active := persistentConn{Conn: conn, cmdline: cmdline}
+			unixconn, ok := conn.(*net.UnixConn)
+			if !ok {
+				err = fmt.Errorf("Inherited control FD not a UNIX socket")
+				return
+			}
+
+			active := persistentConn{Conn: unixconn, cmdline: cmdline}
 			s.conns = append(s.conns, active)
 			cmdfile.Close() // not needed any more - we have the cmdline
 		}
@@ -215,7 +224,7 @@ func (s *Server) Serve() (err error) {
 	s.mu.Unlock()
 
 	for {
-		conn, e := s.l.Accept()
+		conn, e := s.l.AcceptUnix()
 		if e != nil {
 			select {
 			case <-s.getDoneChan():
@@ -243,7 +252,7 @@ func (s *Server) Shutdown() {
 	s.ctxCancel()
 }
 
-func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
+func (s *Server) serve(pctx context.Context, c *net.UnixConn, initialcmd []byte) {
 
 	defer c.Close()
 	defer s.wg.Done()
@@ -253,14 +262,19 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 	var ctx context.Context       // currently executed command context.
 	var cancel context.CancelFunc // function to call to cancel currently executing command.
 
+	// default commands
 	var quitCommand = s.QuitCommand
-	//if quitCommand == "" {
-	//	quitCommand = "quit"
-	//}
+	if quitCommand == "" {
+		quitCommand = "q"
+	}
 	var helpCommand = s.HelpCommand
-	//if helpCommand == "" {
-	//	helpCommand = "help"
-	//}
+	if helpCommand == "" {
+		helpCommand = "?"
+	}
+	var oneshotCommand = s.OneshotCommand
+	if oneshotCommand == "" {
+		oneshotCommand = "!"
+	}
 
 	// An anonymous inode file which contains the current executing commandline
 	var err error
@@ -319,10 +333,12 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 		}
 	}()
 
+	var closeAfterCommand bool
 	// Read connection as lines, executing commands.
 	// Start with any initial command provided, then parse lines from the connection
 	scanner := bufio.NewScanner(c)
 	for initialcmd != nil || scanner.Scan() { // Lazy eval. First run initial
+
 		var line []byte
 		if initialcmd != nil {
 			line = initialcmd
@@ -369,9 +385,11 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 		}
 
 		var cmdhelp bool // if true, don't run current command. Show its help instead.
-		var cmd string   // current command
 
-		if tokens[0] == quitCommand {
+		cmd := tokens[0] // current command
+
+		switch cmd {
+		case quitCommand:
 			sd.Forget(gonectrl)
 			sd.Forget(gonecmd)
 			cmdwg.Wait() // Don't exit until the current executing command has gotten the message.
@@ -379,19 +397,27 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 				cancel()
 			}
 			return
-		}
-
-		// Handle any help commands
-		if helpCommand != "" && tokens[0] == helpCommand {
-			if len(tokens) == 2 {
-				cmd = tokens[1]
-				cmdhelp = true
-			} else {
-				s.help(c, helpCommand, quitCommand)
+		case helpCommand:
+			// Handle any help commands
+			if helpCommand != "" {
+				if len(tokens) == 2 {
+					cmd = tokens[1]
+					cmdhelp = true
+				} else {
+					s.help(c, helpCommand, quitCommand)
+					if closeAfterCommand {
+						c.CloseWrite()
+					}
+					continue
+				}
+			}
+		case oneshotCommand:
+			if len(tokens) <= 1 {
 				continue
 			}
-		} else {
+			tokens = tokens[1:]
 			cmd = tokens[0]
+			closeAfterCommand = true
 		}
 
 		// Get the current command.
@@ -403,6 +429,9 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 		if ok {
 			if cmdhelp {
 				cmdobj.Usage(cmd, c)
+				if closeAfterCommand {
+					c.CloseWrite()
+				}
 			} else {
 				ctx, cancel = context.WithCancel(pctx)
 				async, persistent, err := cmdobj.Invoke(ctx, c, cmd, tokens[1:])
@@ -420,13 +449,23 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 							defer cmdwg.Done()
 							async()  // Invoke the command.
 							cancel() // make sure it's cancel'ed if it exits by it self.
+							if closeAfterCommand {
+								c.CloseWrite()
+							}
 						}()
 					} else {
 						cancel()
+						if closeAfterCommand {
+							c.CloseWrite()
+						}
 					}
 
 				} else {
 					fmt.Fprintln(c, "Error: ", err.Error())
+					cancel()
+					if closeAfterCommand {
+						c.CloseWrite()
+					}
 				}
 			}
 		} else {
@@ -439,7 +478,6 @@ func (s *Server) serve(pctx context.Context, c net.Conn, initialcmd []byte) {
 
 		// Ready for the next command - loop to the scanner.
 	}
-
 	if err := scanner.Err(); err != nil {
 		if s.Logger != nil {
 			s.Logger(srv.LvlWARN, fmt.Sprintf("reading connection: %s", err.Error()))
