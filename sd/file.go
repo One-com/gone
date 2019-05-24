@@ -388,8 +388,9 @@ func exportInternal(sdname string, f interface{}, lock *os.File) (err error) {
 		if err != nil {
 			return
 		}
-		// The Go net package sets the socket blocking.
-		err = unix.SetNonblock(int(file.Fd()), true)
+
+		// The Go (<1.11) net package sets the socket blocking.
+		err = nonblockHack(file)
 		if err != nil {
 			file.Close()
 			return
