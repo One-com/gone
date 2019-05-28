@@ -41,8 +41,7 @@ type sdfile struct {
 // close the file descriptor, if it's an owned UNIX domain socket
 // unlink the socket file
 func (f *sdfile) close() error {
-	err := f.File.Close()
-	return err
+	return f.File.Close()
 }
 
 // state of file descriptors going in/out to systemd
@@ -56,7 +55,7 @@ type state struct {
 
 	available []*sdfile
 
-	// When an available *sdfile is use it's recorded here.
+	// When an available *sdfile is used it's recorded here.
 	// These (if not closed) are also the *os.File exported
 	// a map removed duplicates
 	active map[interface{}]*sdfile
@@ -114,7 +113,8 @@ func _availablefds() (ret []uintptr) {
 	return
 }
 
-// Cleanup closes all inherited file descriptors which have not been Exported
+// Cleanup closes all inherited file descriptors which have not yet been
+// used by clients of this library by a directly or indirect call to FileWith()
 func Cleanup() {
 	fdState.cleanup()
 }
@@ -136,8 +136,8 @@ func (s *state) _cleanupLocked() {
 	s.available = nil
 }
 
-// Reset closes all inherited an non Exported file descriptors and makes the current
-// Exported set of file descriptors avaible again as if they were inherited.
+// Reset does a Cleanup() and makes the current
+// Exported set of file descriptors available again as if they were inherited.
 func Reset() {
 	fdState.reset()
 }
@@ -189,16 +189,17 @@ func (s *state) inherit() error {
 		// Check the file descriptors are for us
 		// NB: We cannot set the PID when respawning due to Go limitations.
 		if pidStr := os.Getenv(envListenPid); pidStr != "" {
-			pid, err := strconv.Atoi(pidStr)
+			lpid, err := strconv.Atoi(pidStr)
 			if err != nil {
 				retErr = err
 				return
 			}
-			if pid != os.Getpid() {
+			pid := os.Getpid()
+			if pid != lpid {
 				// not for us
 				ignore := os.Getenv(envIgnoreListenPid)
 				if ignore == "" {
-					fmt.Println("Not for us", pid)
+					retErr = fmt.Errorf("LISTEN_PID (%d) was my my PID (%d)", lpid, pid)
 					return
 				}
 			}
@@ -276,9 +277,10 @@ func (s *state) inherit() error {
 		}
 		// hook fdstore locks up on the socket fds
 		if locksFromFdstore != nil {
+			// check all available inherited fd's if they are listening UNIX sockets
 			for _, sdf := range s.available {
 				if path, ok, err := listeningUnixSocketPath(int(sdf.Fd())); err != nil && ok {
-					if sdf.lock == nil { // find any lock
+					if sdf.lock == nil { // find any potential lock file
 						var st unix.Stat_t
 						lockpath := path + ".lock"
 						err = unix.Stat(lockpath, &st)
@@ -289,6 +291,7 @@ func (s *state) inherit() error {
 							retErr = err
 							return
 						}
+						// ... check if that lock file is also inherited and store it with the UNIX socket
 						for _, lockfd := range locksFromFdstore {
 							var stl unix.Stat_t
 							err = unix.Fstat(lockfd, &stl)
@@ -368,6 +371,8 @@ func Export(sdname string, f interface{}) (err error) {
 	return
 }
 
+// sames as Export, but allows to specify an associated lock file for UNIX sockets
+// to support nicely replacing UNIX socket listeners.
 func exportInternal(sdname string, f interface{}, lock *os.File) (err error) {
 
 	s := fdState
@@ -415,6 +420,7 @@ func exportInternal(sdname string, f interface{}, lock *os.File) (err error) {
 	return
 }
 
+// wrappers around UNIX fcntl to dup() with close-on-exec
 func dupCloseOnExec(fd int) (newfd int, err error) {
 	return fcntl(fd, unix.F_DUPFD_CLOEXEC, 0)
 }

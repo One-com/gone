@@ -21,6 +21,7 @@ import (
 // fully.
 type FileTest func(*os.File) (bool, error)
 
+// Test whether an inherited file descriptor fulfills a series of tests
 func (f *sdfile) isMatching(tests ...FileTest) (ok bool, err error) {
 	for _, t := range tests {
 		if ok, err = t(f.File); err != nil {
@@ -37,6 +38,8 @@ func (f *sdfile) isMatching(tests ...FileTest) (ok bool, err error) {
 
 //--------------------------------------------------------------------
 
+// Generic function to test whether an fd is of a specific type and whether it's listening.
+// ignore listning test if wantListening = -1
 func isSocketInternal(fd uintptr, sotype int, wantListening int) (ok bool, err error) {
 	var stat unix.Stat_t
 	err = unix.Fstat(int(fd), &stat)
@@ -112,6 +115,7 @@ func IsFifo(path string) FileTest {
 	}
 }
 
+// test whether an fd refers to a listening UNIX socket and return it's path
 func listeningUnixSocketPath(fd int) (path string, ok bool, err error) {
 	ok, err = isSocketInternal(uintptr(fd), 0, 1) // we want a listening UNIX socket of any sotype.
 	if !ok || err != nil {
