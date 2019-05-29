@@ -8,9 +8,9 @@ import (
 	"gopkg.in/logfmt.v0"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -360,7 +360,7 @@ func (f *stdformatter) formatHeader(buf *[]byte, level syslog.Priority, t time.T
 
 	*buf = append(*buf, f.prefix...) // add any custom prefix
 
-	if f.flag&(Lname) != 0 {
+	if name != "" && f.flag&(Lname) != 0 {
 		*buf = append(*buf, '(')
 		*buf = append(*buf, name...)
 		*buf = append(*buf, ") "...)
