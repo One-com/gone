@@ -45,7 +45,7 @@ The default Logger supports all this as well, using log level constants source c
 		LOG_DEBUG
 	)
 
-Logging with key/value data is (in its most simple form) done by calling level specific functions. First argument is the message, subsequence arguments key/value data:
+Logging with key/value data is (in its most simple form) done by calling level specific functions. First argument is the message, subsequenct arguments key/value data:
 
     	log.DEBUG("hi", "key", "value")
 	log.INFO("hi again")
@@ -79,7 +79,7 @@ A new custom Logger with its own behavior and formatting handler can be created:
 
 A customer Logger will not per default spend time timestamping events or registring file/line information. You have to enable that explicitly (it's not enabled by setting the flags on a formatting handler).
 
-When having key/value data which you need to have logged in all log events, but don't want to remember put into every log statement, you can create a "child" Logger:
+When having key/value data which you need to have logged in all log events, but don't want to remember to put into every log statement, you can create a "child" Logger:
 
      reqlog := l.With( "session", uuid.NewUUID() )
      reqlog.ERROR("Invalid session")
@@ -97,6 +97,24 @@ There are 2 ways to get around that. The first is do do Lazy evaluation of argum
 The other is to pick an comma-ok style log function:
 
     	if f,ok := l.DEBUGok(); ok  { f("heavy", "fib123", fib(123)) }
+
+Sometimes it can be repetitive to make a lot of log statements logging many attributes of the same kinda of object by explicitly accessing every attribute. To make that simpler, every object can implement the Logable interface by creating a LogValues() function returning the attributes to be logged (with keys). The object can then be logged by directly providing it as an argument to a log function:
+
+   type Request struct {
+      IP string
+      Method string
+   }
+
+   func (r *Request) LogValues() log.KeyValues {
+      return []interface{}{
+         "ip", r.IP,
+         "meth", r.Method,
+      }
+   }
+
+   req := &Request{ IP : "127.0.0.1", Method : "GET"}
+
+   log.NOTICE("Got request", req)
 
 Loggers can have names, placing them in a global "/" separated hierarchy.
 
