@@ -1,3 +1,8 @@
+/*
+Package signals provides a generic signal handler which will call simple functions based on a mapping from signal to function.
+
+The signal handler will select over a set of signal channels being buffered by 1 signal. This means that a signal will only be lost of there's another similar signal pending.
+*/
 package signals
 
 import (
