@@ -8,47 +8,62 @@ import (
 	unix "syscall"
 )
 
+// ErrNoSuchFdName signals an attempt to create a socket without specifying an existing fd name
+// or an address. UNIX sockets require a file system path and can not (like IP socket) listen
+// on all addresses, so it's an error to not provide either a name, or a path.
 var ErrNoSuchFdName = errors.New("No file with the requested name and no requested address")
 
 var unixSocketUnlinkPolicy uint32 = UnixSocketUnlinkPolicySocket
 
+// UnixScoketUnlinkPolicy* constants are used to decide how to deal with listening on a UNIX socket where the filesystem file might already exist. One way is to just unlink it, but it's hard to know whether there's still a process using it. The flock(2) advisory locking scheme deals with this in a nice way.
 const (
-	// Never unlink socket files
+	// Never unlink socket files before listening
 	UnixSocketUnlinkPolicyNone uint32 = iota
-	// Always unlink socket files
+	// Always unlink socket files before listning
 	UnixSocketUnlinkPolicyAlways
-	// Stat the file to ensure it's a UNIX socket before unlinking
+	// Always unlink, but stat(2) the file to ensure it's a UNIX socket before unlinking.
 	UnixSocketUnlinkPolicySocket
-	// Take a flock(2) lock on a socket.lock file before unlinking
+	// Take a flock(2) lock on a socket.lock file before unlinking to ensure no other process is still using it.
 	UnixSocketUnlinkPolicyFlock
 )
 
 // SetUnixSocketUnlinkPolicy decides how the sd library will deal with stale UNIX socket file when you create
-// a new listening Unix socket which is not created from the environment the parent process (maybe systemd)
+// a new listening Unix socket which is not inherited from the environment the parent process (maybe systemd socket activation)
 // made for your process.
+//
 // About UNIX domain sockets:
 // UNIX sockets don't work exactly like TCP/UDP sockets. The kernel doesn't reclaim the "address" (ie. the socket file)
 // when the last file descriptor is closed. The file still hangs around - and will prevent a new bind(2) to that
 // adddress/path.
+//
 // Go has before version 1.7 solved this by doing unlink(2) on the file when you call Close() on a net.UnixListener.
 // This doesn't play well with systemd socket activation though (or any graceful restart system transferring file descriptors).
-// Systemd doesn't expect the file to disappear and removing it will prevent clients for connecting the the listener.
+//
+// Systemd doesn't expect the file to disappear and removing it will prevent clients for connecting to the listener.
 // See: https://github.com/golang/go/issues/13877
+//
 // Go 1.7 introduced some magic where listeners created with FileListener() would not do this.
+//
 // Go 1.8 allow the user to control this with SetUnlinkOnClose().
+//
 // The unix(7) manpage says: "Binding to a socket with a filename creates a socket in the filesystem that must be deleted by the caller when it is no longer needed".
+//
 // However...
+//
 // This may not be easy to guarantee... a process can crash before it removes the file. As evidence the same unix(7) man page
 // exemplifies this with code where it calls unlink(2) just before bind(2) "In case the program exited inadvertently on the last run,
 // remove the socket."
+//
 // Always unlinking the socket file might not be the thing you want either. There might be another instance of your daemon using it.
 // Then unlinking would "steal" the address from the other process. This might be what you want - but you would have a small window
 // without a socket file where clients would get rejected.
+//
 // So... the sd library will not try to unlink on close. In fact, it uses SetUnlinkOnClose(false) to never do this for any UNIX listener.
 // Instead the sd library encourages "UnlinkBeforeBind". In other words: When it needs to create a new socket file it employs a UnixSocketUnlinkPolicy.
 // This policy can be none (do not unlinK) or always unlink. Or it can be "test if the socket file is a socket file first".
-// None of these will however "just work" in any scenario. Therefore there's "use flock(2)" policy to use advisory file locking to ensure
+// None of these will however "just work" in any scenario. Therefore there's a "use flock(2)" policy to use advisory file locking to ensure
 // the socket file is only removed when there's no other process using it.
+//
 // The default is UnixSocketUnlinkPolicySocket. You need to change this ( like, in you init() ) to use the flock(2) mechanism.
 func SetUnixSocketUnlinkPolicy(policy uint32) {
 	atomic.StoreUint32(&unixSocketUnlinkPolicy, policy)
@@ -280,13 +295,14 @@ func NamedListenUnix(name, nett string, laddr *net.UnixAddr) (l *net.UnixListene
 }
 
 // ListenUDP returns a normal *net.UDPConn. It will create a new socket
-// if there's no appropriate inherited file descriptor listening.
-func ListenUDP(net string, laddr *net.UDPAddr) (*net.UDPConn, error) {
-	return NamedListenUDP("", net, laddr)
+// if there's no appropriate inherited file descriptor listening. The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
+func ListenUDP(nett string, laddr *net.UDPAddr) (*net.UDPConn, error) {
+	return NamedListenUDP("", nett, laddr)
 }
 
 // NamedListenUDP is like ListenUDP, but will require any used inherited
-// file descriptor to have the given systemd socket name
+// file descriptor to have the given systemd socket name.
+// The returned listener will be Export'ed by the sd library. Call Forget() to undo the export.
 func NamedListenUDP(name, net string, laddr *net.UDPAddr) (*net.UDPConn, error) {
 	return nil, nil
 }

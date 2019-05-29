@@ -115,6 +115,7 @@ func _availablefds() (ret []uintptr) {
 
 // Cleanup closes all inherited file descriptors which have not yet been
 // used by clients of this library by a directly or indirect call to FileWith()
+// The network functions (Listen*, NamedListen*, InheritNamed*) for listening or inheriting sockets will indirectly call FileWith()
 func Cleanup() {
 	fdState.cleanup()
 }
@@ -323,7 +324,7 @@ func (s *state) inherit() error {
 // Forget makes the sd library forget about its file descriptor (made by Export)
 // associated with either an exported object or a string naming a file descriptor.
 // If more file descriptors are named the same, they are all closed.
-// Forget should be passed, either a string naming the file descriptor, OR the object
+// Forget should be passed, either a string naming the file descriptor, OR the exact object
 // originally exported.
 func Forget(f interface{}) (err error) {
 	s := fdState
@@ -364,7 +365,8 @@ func Forget(f interface{}) (err error) {
 // as in active use. Closing the object provided will not close the managed file descriptor, so
 // any socket connection will still be open an be able to be transferred to other processes/objects
 // in open state.
-// If you want to stop managing the file descriptor and close it, call Forget() on the name, or provided
+//
+// If you want to stop managing the file descriptor and close it, call Forget() on the name, or provide
 // the same object as was exported.
 func Export(sdname string, f interface{}) (err error) {
 	err = exportInternal(sdname, f, nil)
@@ -439,9 +441,12 @@ func fcntl(fd int, cmd int, arg int) (val int, err error) {
 // The file descriptor is marked as no longer available and forgotten by the library.
 // If the name requested is "", any file descriptor matching the tests is returned.
 // The actual name is also returned FYI (in case the requested name was "")
+//
 // The name provided here is *NOT* the same name as the calling .Name() on the returned file.
 // This name is the systemd name as controlled by the systemd socket unit FileDescriptorName=
-// Calling .Name() on an socket *os.File will usually return information about bound addresses.
+//
+// Calling .Name() on an socket *os.File will usually return information about bound addresses. That's not the name used here.
+//
 // Notice: Once the file is returned, it's no longer the responsibility of the sd package, so any
 // test to determine whether the file is actually the one you need should be defined and passed as
 // a FileTest. You cannot get a file based on "half-a-test", do some more testing later and

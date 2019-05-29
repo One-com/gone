@@ -21,6 +21,7 @@ const (
 	goneUnixSocketLockFdName = "GONEUXSCKLCK"
 )
 
+// Status* tells what status data to send to systemd over the nofity socket. You can control this in detail yourself by using the Notify() function.
 const (
 	// StatusNone - Don't send a STATUS
 	StatusNone = iota

@@ -17,7 +17,7 @@ to just create the socket. If there's no notifiy socket, calling sd.Notify() wil
 
 You can use package "sd" without any interaction with systemd, merely to manage a set of active socket file descriptors
 using the Cleanup() function to close all file decriptors not in use and Reset() to make all file descriptors in use available
-for creating Listeners/PacketConns again.
+for creating Listeners/PacketConns again. This can be used for simple daemon reload schemes to respawn a daemon keeping it's file descriptors open. (with or without systemd).
 
 */
 package sd
