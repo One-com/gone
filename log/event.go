@@ -9,7 +9,6 @@ import (
 
 // Event is the basic log event type.
 // Exported to be able to implement Handler interface for external packages.
-// Handlers passed an Event "e" can access e.Lvl, e.Msg, e.Data, e.Name
 type Event struct {
 	*event
 }
@@ -72,6 +71,26 @@ var defaultKeyNames = &EventKeyNames{
 	Msg:  "_msg",
 	File: "_file",
 	Line: "_line",
+}
+
+// Level returns the log level of the event
+func (e *event) Level() syslog.Priority {
+	return e.Lvl
+}
+
+// Message returns the log message of the event
+func (e *event) Message() string {
+	return e.Msg
+}
+
+// KvData returns the structured list of key/value data
+func (e *event) KvData() KeyValues {
+	return e.Data
+}
+
+// LoggerName returns the name of the logger logging the event.
+func (e *event) LoggerName() string {
+	return e.Name
 }
 
 // Time returns the timestamp of an event.

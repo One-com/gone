@@ -37,7 +37,7 @@ func With(kv ...interface{}) *Logger {
 	return defaultLogger.With(kv...)
 }
 
-// AutoColoring turns on coloring if the output Writer is connected to a TTY
+// AutoColoring turns on coloring for the default logger if the output Writer is connected to a TTY
 func AutoColoring() {
 	defaultLogger.AutoColoring()
 }
@@ -154,7 +154,7 @@ func SetPrintLevel(level syslog.Priority, respect bool) bool {
 	return defaultLogger.SetPrintLevel(level, respect)
 }
 
-// Level returns the default Loggers log level.
+// Level returns the default Logger's log level.
 func Level() syslog.Priority {
 	return defaultLogger.Level()
 }

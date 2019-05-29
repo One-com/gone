@@ -62,7 +62,7 @@ func Parse() StdlibAdapterOption {
 }
 
 // NewStdlibAdapter returns a new StdlibAdapter wrapper around the passed
-// logger. It's designed to be passed to log.SetOutput.
+// logger. It's designed to be passed to the standard library's log.SetOutput()
 func NewStdlibAdapter(logger *Logger, level syslog.Priority, options ...StdlibAdapterOption) io.Writer {
 	a := StdlibAdapter{
 		level:        level,

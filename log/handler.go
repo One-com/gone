@@ -5,10 +5,16 @@ import (
 )
 
 // Handler is the interface needed to be a part of the Handler chain.
-// Formatters implement this to reveive events.
-// The Handlers in this file pass the Event to further handlers
 //
-// Once events has been created, a Handler can ensure it's shipped to the log system.
+// Events are sent from a logger down a chain of Handlers. The final Handler (which
+// doesn't call other handlers) is called a Formatter.
+// Formatters turn the event into something else (like a log-line) and are also Handlers.
+// Formatters implement this interface to receive events.
+//
+// Some Handlers pass the Event to further handlers while doing things like filtering, which
+// is harder to do on formatted log-lines.
+//
+// In other words: Once Events has been created, a Handler can ensure it's shipped to the log system.
 // Formatters are a special kind og Handlers which ends the handler pipeline and
 // convert the *Event to []byte (and does something with the bytes)
 type Handler interface {
