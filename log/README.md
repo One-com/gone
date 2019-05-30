@@ -21,6 +21,8 @@ See the examples in api_test.go
 
 Logging is done through *log.Logger objects. They implement all the logging API.
 
+A log event is created by calling one of the logging methods on a *log.Logger object - like ERROR(). Loggers are arranged in a hierarchy. Traversing it will find a Handler chain. The event is then sent through the Handler chain until it ends at a formatting Handler. Potentially the formatted event is then sent through a chain of Writers to finally reach it's *os.File destination.
+
 ![diagram](diagram.png)
 
 Every Logger has its own config, which determines the max log level for which it will generate log events. Whether an event will be generated is determined by the exact Logger on which a log method was called.
