@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/One-com/gone/log/syslog"
 	"github.com/One-com/gone/log/term"
-	"gopkg.in/logfmt.v0"
+	"github.com/go-logfmt/logfmt"
 	"io"
 	"os"
 	"strings"
