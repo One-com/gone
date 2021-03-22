@@ -6,21 +6,15 @@ import (
 	"strings"
 )
 
-// AutomaticEnv makes Hugorm check if environment variables match any of the existing keys
-// (config, default or flags). If matching env vars are found, they are loaded into Hugorm.
-func AutomaticEnv() { hg.AutomaticEnv() }
+// SetEnvPrefix defines a prefix that ENVIRONMENT variables will use.
+// E.g. if your prefix is "spf", the env registry will look for env
+// variables that start with "SPF_".
+func SetEnvPrefix(in string) { hg.SetEnvPrefix(in) }
 
-func (h *Hugorm) AutomaticEnv() {
-	h.automaticEnvApplied = true
-}
-
-// SetEnvKeyReplacer sets the strings.Replacer.
-// Useful for mapping an environmental variable to a key that does
-// not match it.
-func SetEnvKeyReplacer(r *strings.Replacer) { hg.SetEnvKeyReplacer(r) }
-
-func (h *Hugorm) SetEnvKeyReplacer(r *strings.Replacer) {
-	h.envKeyReplacer = r
+func (h *Hugorm) SetEnvPrefix(in string) {
+	if in != "" {
+		h.envPrefix = in
+	}
 }
 
 // BindEnv binds a Hugorm key to a ENV variable.
@@ -46,6 +40,8 @@ func (h *Hugorm) BindEnv(input ...string) error {
 		h.env[key] = append(h.env[key], input[1:]...)
 	}
 
+	h.invalidateCache()
+
 	return nil
 }
 
@@ -61,10 +57,6 @@ func (h *Hugorm) withEnvPrefix(in string) string {
 // key. This allows env vars which have different keys than the config object
 // keys.
 func (h *Hugorm) getEnv(key string) (string, bool) {
-	if h.envKeyReplacer != nil {
-		key = h.envKeyReplacer.Replace(key)
-	}
-
 	val, ok := os.LookupEnv(key)
 
 	return val, ok && (h.allowEmptyEnv || val != "")
@@ -77,4 +69,22 @@ func AllowEmptyEnv(allowEmptyEnv bool) { hg.AllowEmptyEnv(allowEmptyEnv) }
 
 func (h *Hugorm) AllowEmptyEnv(allowEmptyEnv bool) {
 	h.allowEmptyEnv = allowEmptyEnv
+}
+
+func (h *Hugorm) envBindings2configMap(bindings map[string][]string) (result map[string]interface{}) {
+
+	result = make(map[string]interface{})
+
+BINDING:
+	for b, envkeys := range bindings {
+		path := strings.Split(b, h.keyDelim)
+		for _, envkey := range envkeys {
+			if val, ok := h.getEnv(envkey); ok {
+				setKeyInMap(result, path, val)
+				continue BINDING
+			}
+		}
+
+	}
+	return
 }

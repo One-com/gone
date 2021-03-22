@@ -20,13 +20,13 @@ import (
 	"strings"
 	//	"sync"
 	"testing"
-	//	"time"
+	"time"
 
 	//"github.com/fsnotify/fsnotify"
 	//"github.com/mitchellh/mapstructure"
 
 	//"github.com/spf13/cast"
-	//"github.com/spf13/pflag"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	//	"github.com/stretchr/testify/require"
 	"github.com/One-com/gone/hugorm/internal/testutil"
@@ -74,6 +74,7 @@ var jsonExample = []byte(`{
 "type": "donut",
 "name": "Cake",
 "ppu": 0.55,
+"foo" : {"bar" : "baz"},
 "batters": {
         "batter": [
                 { "type": "Regular" },
@@ -428,6 +429,7 @@ func TestJSON(t *testing.T) {
 //}
 //
 func TestEnv(t *testing.T) {
+	Reset()
 	initJSON()
 
 	BindEnv("id")
@@ -437,73 +439,76 @@ func TestEnv(t *testing.T) {
 	testutil.Setenv(t, "FOOD", "apple")
 	testutil.Setenv(t, "OLD_FOOD", "banana")
 	testutil.Setenv(t, "NAME", "crunk")
+	testutil.Setenv(t, "BAR", "Puf")
 
 	assert.Equal(t, "13", Get("id"))
 	assert.Equal(t, "apple", Get("f"))
 	assert.Equal(t, "Cake", Get("name"))
 
-	AutomaticEnv()
+	BindEnv("name", "NAME")
 
 	assert.Equal(t, "crunk", Get("name"))
+
+	BindEnv("foo.bar", "BAR")
+	assert.Equal(t, "Puf", Get("foo.bar"))
 }
 
-//
-//func TestMultipleEnv(t *testing.T) {
-//	initJSON()
-//
-//	BindEnv("f", "FOOD", "OLD_FOOD")
-//
-//	testutil.Setenv(t, "OLD_FOOD", "banana")
-//
-//	assert.Equal(t, "banana", Get("f"))
-//}
-//
-//func TestEmptyEnv(t *testing.T) {
-//	initJSON()
-//
-//	BindEnv("type") // Empty environment variable
-//	BindEnv("name") // Bound, but not set environment variable
-//
-//	testutil.Setenv(t, "TYPE", "")
-//
-//	assert.Equal(t, "donut", Get("type"))
-//	assert.Equal(t, "Cake", Get("name"))
-//}
-//
-//func TestEmptyEnv_Allowed(t *testing.T) {
-//	initJSON()
-//
-//	AllowEmptyEnv(true)
-//
-//	BindEnv("type") // Empty environment variable
-//	BindEnv("name") // Bound, but not set environment variable
-//
-//	testutil.Setenv(t, "TYPE", "")
-//
-//	assert.Equal(t, "", Get("type"))
-//	assert.Equal(t, "Cake", Get("name"))
-//}
-//
-//func TestEnvPrefix(t *testing.T) {
-//	initJSON()
-//
-//	SetEnvPrefix("foo") // will be uppercased automatically
-//	BindEnv("id")
-//	BindEnv("f", "FOOD") // not using prefix
-//
-//	testutil.Setenv(t, "FOO_ID", "13")
-//	testutil.Setenv(t, "FOOD", "apple")
-//	testutil.Setenv(t, "FOO_NAME", "crunk")
-//
-//	assert.Equal(t, "13", Get("id"))
-//	assert.Equal(t, "apple", Get("f"))
-//	assert.Equal(t, "Cake", Get("name"))
-//
-//	AutomaticEnv()
-//
-//	assert.Equal(t, "crunk", Get("name"))
-//}
-//
+func TestMultipleEnv(t *testing.T) {
+	Reset()
+	initJSON()
+
+	BindEnv("f", "FOOD", "OLD_FOOD")
+
+	testutil.Setenv(t, "OLD_FOOD", "banana")
+
+	assert.Equal(t, "banana", Get("f"))
+}
+
+func TestEmptyEnv(t *testing.T) {
+	Reset()
+	initJSON()
+
+	BindEnv("type") // Empty environment variable
+	BindEnv("name") // Bound, but not set environment variable
+
+	testutil.Setenv(t, "TYPE", "")
+
+	assert.Equal(t, "donut", Get("type"))
+	assert.Equal(t, "Cake", Get("name"))
+}
+
+func TestEmptyEnv_Allowed(t *testing.T) {
+	Reset()
+	initJSON()
+
+	AllowEmptyEnv(true)
+
+	BindEnv("type") // Empty environment variable
+	BindEnv("name") // Bound, but not set environment variable
+
+	testutil.Setenv(t, "TYPE", "")
+
+	assert.Equal(t, "", Get("type"))
+	assert.Equal(t, "Cake", Get("name"))
+}
+
+func TestEnvPrefix(t *testing.T) {
+	Reset()
+	initJSON()
+
+	SetEnvPrefix("foo") // will be uppercased automatically
+	BindEnv("id")
+	BindEnv("f", "FOOD") // not using prefix
+
+	testutil.Setenv(t, "FOO_ID", "13")
+	testutil.Setenv(t, "FOOD", "apple")
+	testutil.Setenv(t, "FOO_NAME", "crunk")
+
+	assert.Equal(t, "13", Get("id"))
+	assert.Equal(t, "apple", Get("f"))
+	assert.Equal(t, "Cake", Get("name"))
+}
+
 //func TestAutoEnv(t *testing.T) {
 //	Reset()
 //
@@ -693,55 +698,55 @@ func TestEnv(t *testing.T) {
 //	RegisterAlias("Roo", "baz")
 //}
 //
-//func TestUnmarshal(t *testing.T) {
-//	SetDefault("port", 1313)
-//	Set("name", "Steve")
-//	Set("duration", "1s1ms")
-//	Set("modes", []int{1, 2, 3})
-//
-//	type config struct {
-//		Port     int
-//		Name     string
-//		Duration time.Duration
-//		Modes    []int
-//	}
-//
-//	var C config
-//
-//	err := Unmarshal(&C)
-//	if err != nil {
-//		t.Fatalf("unable to decode into struct, %v", err)
-//	}
-//
-//	assert.Equal(
-//		t,
-//		&config{
-//			Name:     "Steve",
-//			Port:     1313,
-//			Duration: time.Second + time.Millisecond,
-//			Modes:    []int{1, 2, 3},
-//		},
-//		&C,
-//	)
-//
-//	Set("port", 1234)
-//	err = Unmarshal(&C)
-//	if err != nil {
-//		t.Fatalf("unable to decode into struct, %v", err)
-//	}
-//
-//	assert.Equal(
-//		t,
-//		&config{
-//			Name:     "Steve",
-//			Port:     1234,
-//			Duration: time.Second + time.Millisecond,
-//			Modes:    []int{1, 2, 3},
-//		},
-//		&C,
-//	)
-//}
-//
+func TestUnmarshal(t *testing.T) {
+	SetDefault("port", 1313)
+	Set("name", "Steve")
+	Set("duration", "1s1ms")
+	Set("modes", []int{1, 2, 3})
+
+	type config struct {
+		Port     int
+		Name     string
+		Duration time.Duration
+		Modes    []int
+	}
+
+	var C config
+
+	err := Unmarshal(&C)
+	if err != nil {
+		t.Fatalf("unable to decode into struct, %v", err)
+	}
+
+	assert.Equal(
+		t,
+		&config{
+			Name:     "Steve",
+			Port:     1313,
+			Duration: time.Second + time.Millisecond,
+			Modes:    []int{1, 2, 3},
+		},
+		&C,
+	)
+
+	Set("port", 1234)
+	err = Unmarshal(&C)
+	if err != nil {
+		t.Fatalf("unable to decode into struct, %v", err)
+	}
+
+	assert.Equal(
+		t,
+		&config{
+			Name:     "Steve",
+			Port:     1234,
+			Duration: time.Second + time.Millisecond,
+			Modes:    []int{1, 2, 3},
+		},
+		&C,
+	)
+}
+
 //func TestUnmarshalWithDecoderOptions(t *testing.T) {
 //	Set("credentials", "{\"foo\":\"bar\"}")
 //
@@ -778,137 +783,140 @@ func TestEnv(t *testing.T) {
 //	}, &C)
 //}
 //
-//func TestBindPFlags(t *testing.T) {
-//	v := New() // create independent Viper object
-//	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-//
-//	testValues := map[string]*string{
-//		"host":     nil,
-//		"port":     nil,
-//		"endpoint": nil,
-//	}
-//
-//	mutatedTestValues := map[string]string{
-//		"host":     "localhost",
-//		"port":     "6060",
-//		"endpoint": "/public",
-//	}
-//
-//	for name := range testValues {
-//		testValues[name] = flagSet.String(name, "", "test")
-//	}
-//
-//	err := v.BindPFlags(flagSet)
-//	if err != nil {
-//		t.Fatalf("error binding flag set, %v", err)
-//	}
-//
-//	flagSet.VisitAll(func(flag *pflag.Flag) {
-//		flag.Value.Set(mutatedTestValues[flag.Name])
-//		flag.Changed = true
-//	})
-//
-//	for name, expected := range mutatedTestValues {
-//		assert.Equal(t, expected, v.Get(name))
-//	}
-//}
-//
-//// nolint: dupl
-//func TestBindPFlagsStringSlice(t *testing.T) {
-//	tests := []struct {
-//		Expected []string
-//		Value    string
-//	}{
-//		{[]string{}, ""},
-//		{[]string{"jeden"}, "jeden"},
-//		{[]string{"dwa", "trzy"}, "dwa,trzy"},
-//		{[]string{"cztery", "piec , szesc"}, "cztery,\"piec , szesc\""},
-//	}
-//
-//	v := New() // create independent Viper object
-//	defaultVal := []string{"default"}
-//	v.SetDefault("stringslice", defaultVal)
-//
-//	for _, testValue := range tests {
-//		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-//		flagSet.StringSlice("stringslice", testValue.Expected, "test")
-//
-//		for _, changed := range []bool{true, false} {
-//			flagSet.VisitAll(func(f *pflag.Flag) {
-//				f.Value.Set(testValue.Value)
-//				f.Changed = changed
-//			})
-//
-//			err := v.BindPFlags(flagSet)
-//			if err != nil {
-//				t.Fatalf("error binding flag set, %v", err)
-//			}
-//
-//			type TestStr struct {
-//				StringSlice []string
-//			}
-//			val := &TestStr{}
-//			if err := v.Unmarshal(val); err != nil {
-//				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
-//			}
-//			if changed {
-//				assert.Equal(t, testValue.Expected, val.StringSlice)
-//				assert.Equal(t, testValue.Expected, v.Get("stringslice"))
-//			} else {
-//				assert.Equal(t, defaultVal, val.StringSlice)
-//			}
-//		}
-//	}
-//}
-//
-//// nolint: dupl
-//func TestBindPFlagsIntSlice(t *testing.T) {
-//	tests := []struct {
-//		Expected []int
-//		Value    string
-//	}{
-//		{[]int{}, ""},
-//		{[]int{1}, "1"},
-//		{[]int{2, 3}, "2,3"},
-//	}
-//
-//	v := New() // create independent Viper object
-//	defaultVal := []int{0}
-//	v.SetDefault("intslice", defaultVal)
-//
-//	for _, testValue := range tests {
-//		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-//		flagSet.IntSlice("intslice", testValue.Expected, "test")
-//
-//		for _, changed := range []bool{true, false} {
-//			flagSet.VisitAll(func(f *pflag.Flag) {
-//				f.Value.Set(testValue.Value)
-//				f.Changed = changed
-//			})
-//
-//			err := v.BindPFlags(flagSet)
-//			if err != nil {
-//				t.Fatalf("error binding flag set, %v", err)
-//			}
-//
-//			type TestInt struct {
-//				IntSlice []int
-//			}
-//			val := &TestInt{}
-//			if err := v.Unmarshal(val); err != nil {
-//				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
-//			}
-//			if changed {
-//				assert.Equal(t, testValue.Expected, val.IntSlice)
-//				assert.Equal(t, testValue.Expected, v.Get("intslice"))
-//			} else {
-//				assert.Equal(t, defaultVal, val.IntSlice)
-//			}
-//		}
-//	}
-//}
+func TestBindPFlags(t *testing.T) {
+	v := New() // create independent object
+	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+
+	testValues := map[string]*string{
+		"host":     nil,
+		"port":     nil,
+		"endpoint": nil,
+	}
+
+	mutatedTestValues := map[string]string{
+		"host":     "localhost",
+		"port":     "6060",
+		"endpoint": "/public",
+	}
+
+	for name := range testValues {
+		testValues[name] = flagSet.String(name, "", "test")
+	}
+
+	err := v.BindPFlags(flagSet)
+	if err != nil {
+		t.Fatalf("error binding flag set, %v", err)
+	}
+
+	flagSet.VisitAll(func(flag *pflag.Flag) {
+		flag.Value.Set(mutatedTestValues[flag.Name])
+		flag.Changed = true
+	})
+
+	for name, expected := range mutatedTestValues {
+		assert.Equal(t, expected, v.Get(name))
+	}
+}
+
+// nolint: dupl
+func TestBindPFlagsStringSlice(t *testing.T) {
+	tests := []struct {
+		Expected []string
+		Value    string
+	}{
+		{[]string{}, ""},
+		{[]string{"jeden"}, "jeden"},
+		{[]string{"dwa", "trzy"}, "dwa,trzy"},
+		{[]string{"cztery", "piec , szesc"}, "cztery,\"piec , szesc\""},
+	}
+
+	v := New() // create independent object
+	defaultVal := []string{"default"}
+	v.SetDefault("stringslice", defaultVal)
+
+	for _, testValue := range tests {
+		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		flagSet.StringSlice("stringslice", testValue.Expected, "test")
+
+		for _, changed := range []bool{true, false} {
+			flagSet.VisitAll(func(f *pflag.Flag) {
+				f.Value.Set(testValue.Value)
+				f.Changed = changed
+			})
+
+			err := v.BindPFlags(flagSet)
+			if err != nil {
+				t.Fatalf("error binding flag set, %v", err)
+			}
+
+			type TestStr struct {
+				StringSlice []string
+			}
+			val := &TestStr{}
+			if err := v.Unmarshal(val); err != nil {
+				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
+			}
+			if changed {
+				assert.Equal(t, testValue.Expected, val.StringSlice)
+				assert.Equal(t, testValue.Expected, v.Get("stringslice"))
+			} else {
+				assert.Equal(t, defaultVal, val.StringSlice)
+			}
+		}
+	}
+}
+
+// nolint: dupl
+func TestBindPFlagsIntSlice(t *testing.T) {
+	tests := []struct {
+		Expected []int
+		Value    string
+	}{
+		{[]int{}, ""},
+		{[]int{1}, "1"},
+		{[]int{2, 3}, "2,3"},
+	}
+
+	v := New() // create independent object
+	defaultVal := []int{0}
+	v.SetDefault("intslice", defaultVal)
+
+	for _, testValue := range tests {
+		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+		flagSet.IntSlice("intslice", testValue.Expected, "test")
+
+		for _, changed := range []bool{true, false} {
+			flagSet.VisitAll(func(f *pflag.Flag) {
+				f.Value.Set(testValue.Value)
+				f.Changed = changed
+			})
+
+			err := v.BindPFlags(flagSet)
+			if err != nil {
+				t.Fatalf("error binding flag set, %v", err)
+			}
+
+			type TestInt struct {
+				IntSlice []int
+			}
+			val := &TestInt{}
+			if err := v.Unmarshal(val); err != nil {
+				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
+			}
+			if changed {
+				assert.Equal(t, testValue.Expected, val.IntSlice)
+				assert.Equal(t, testValue.Expected, v.Get("intslice"))
+			} else {
+				assert.Equal(t, defaultVal, val.IntSlice)
+			}
+		}
+	}
+}
+
+// TODO: There's some confusion about Changed semantics and default values here
 //
 //func TestBindPFlag(t *testing.T) {
+//	Reset()
 //	testString := "testing"
 //	testValue := newStringValue(testString, &testString)
 //
@@ -927,7 +935,7 @@ func TestEnv(t *testing.T) {
 //
 //	assert.Equal(t, "testing_mutate", Get("testvalue"))
 //}
-//
+
 //func TestBindPFlagDetectNilFlag(t *testing.T) {
 //	result := BindPFlag("testvalue", nil)
 //	assert.Error(t, result)

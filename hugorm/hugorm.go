@@ -26,12 +26,23 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	//"github.com/stretchr/objx"
 	"gopkg.in/yaml.v2"
 	"io"
 	"strings"
 	// TODO make go-routine safe
 	// "sync/atomic"
 )
+
+// ConfigMarshalError happens when failing to marshal the configuration.
+type ConfigMarshalError struct {
+	err error
+}
+
+// Error returns the formatted configuration error.
+func (e ConfigMarshalError) Error() string {
+	return fmt.Sprintf("While marshaling config: %s", e.err.Error())
+}
 
 // Global instance
 var hg *Hugorm
@@ -110,9 +121,7 @@ type Hugorm struct {
 
 	configCache map[string]interface{}
 
-	envKeyReplacer      StringReplacer
-	automaticEnvApplied bool
-	allowEmptyEnv       bool
+	allowEmptyEnv bool
 
 	caseInsensitive bool
 }
@@ -156,19 +165,6 @@ func (fn optionFunc) apply(h *Hugorm) {
 func KeyDelimiter(d string) Option {
 	return optionFunc(func(h *Hugorm) {
 		h.keyDelim = d
-	})
-}
-
-// StringReplacer applies a set of replacements to a string.
-type StringReplacer interface {
-	// Replace returns a copy of s with all replacements performed.
-	Replace(s string) string
-}
-
-// EnvKeyReplacer sets a replacer used for mapping environment variables to internal keys.
-func EnvKeyReplacer(r StringReplacer) Option {
-	return optionFunc(func(h *Hugorm) {
-		h.envKeyReplacer = r
 	})
 }
 
@@ -300,14 +296,10 @@ func SetDefault(key string, value interface{}) { hg.SetDefault(key, value) }
 func (h *Hugorm) SetDefault(key string, value interface{}) {
 	// If alias passed in, then set the proper default
 	key = h.realKey(h.casing(key))
-	value = toCaseInsensitiveValue(value)
+	//value = toCaseInsensitiveValue(value)
 
 	path := strings.Split(key, h.keyDelim)
-	lastKey := path[len(path)-1]
-	deepestMap := deepAutovivificate(h.defaults, path[0:len(path)-1])
-
-	// set innermost value
-	deepestMap[lastKey] = value
+	setKeyInMap(h.defaults, path, value)
 
 	h.invalidateCache()
 }
@@ -321,23 +313,19 @@ func Set(key string, value interface{}) { hg.Set(key, value) }
 func (h *Hugorm) Set(key string, value interface{}) {
 	// If alias passed in, then set the proper override
 	key = h.realKey(h.casing(key))
-	value = toCaseInsensitiveValue(value)
+	//value = toCaseInsensitiveValue(value)
 
 	path := strings.Split(key, h.keyDelim)
-	lastKey := path[len(path)-1]
-	deepestMap := deepAutovivificate(h.override, path[0:len(path)-1])
-
-	// set innermost value
-	deepestMap[lastKey] = value
+	setKeyInMap(h.override, path, value)
 
 	h.invalidateCache()
 }
 
-// ReadConfig will discover and load the configuration file from disk
+// LoadConfig will discover and load the configuration file from disk
 // and key/value stores, searching in one of the defined paths.
-func ReadConfig() error { return hg.ReadConfig() }
+func LoadConfig() error { return hg.LoadConfig() }
 
-func (h *Hugorm) ReadConfig() error {
+func (h *Hugorm) LoadConfig() error {
 
 	for _, s := range h.sources {
 		if l, ok := s.(ConfigLoader); ok {
@@ -393,6 +381,13 @@ func WriteConfigTo(out io.Writer) error { return hg.WriteConfigTo(out) }
 func (h *Hugorm) WriteConfigTo(out io.Writer) error {
 	err := h.marshalWriter(out, "json")
 	return err
+}
+
+// Marshal (alias for WriteConfigTo)
+func Marshal(out io.Writer) error { return hg.Marshal(out) }
+
+func (h *Hugorm) Marshal(out io.Writer) error {
+	return h.WriteConfigTo(out)
 }
 
 // Marshal a map into Writer.
@@ -497,18 +492,25 @@ func (h *Hugorm) mergeConfigs() (consolidated map[string]interface{}) {
 		mcopy := deepCopyMap(s.Values(), h.caseInsensitive)
 		mergeMaps(consolidated, mcopy)
 	}
-	mcopy := deepCopyMap(h.override, h.caseInsensitive)
 
+	// Environment
+	mergeMaps(consolidated, h.envBindings2configMap(h.env))
+
+	// Flags
+	mergeMaps(consolidated, h.flagBindings2configMap(h.pflags))
+
+	// Override
+	mcopy := deepCopyMap(h.override, h.caseInsensitive)
 	mergeMaps(consolidated, mcopy)
 
 	return
 }
 
-//// Sub returns new Viper instance representing a sub tree of this instance.
-//// Sub is case-insensitive for a key.
-//func Sub(key string) *Hugorm { return hg.Sub(key) }
+//// SubConfig returns an object representing a sub tree of this instance.
+//// The subtree of the config at this point must be a map[string]interface{}
+//func SubConfig(key string) *Hugorm { return hg.SubConfig(key) }
 //
-//func (h *Hugorm) Sub(key string) *Hugorm {
+//func (h *Hugorm) SubConfig(key string) *Hugorm {
 //	subv := New()
 //	data := h.Get(key)
 //	if data == nil {

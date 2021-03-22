@@ -18,23 +18,22 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/spf13/afero"
 	"github.com/spf13/cast"
 	"reflect"
 )
 
-// toCaseInsensitiveValue checks if the value is a  map;
-// if so, create a copy and lower-case the keys recursively.
-func toCaseInsensitiveValue(value interface{}) interface{} {
-	switch v := value.(type) {
-	case map[interface{}]interface{}:
-		value = copyAndInsensitiviseMap(cast.ToStringMap(v))
-	case map[string]interface{}:
-		value = copyAndInsensitiviseMap(v)
-	}
-
-	return value
-}
+//// toCaseInsensitiveValue checks if the value is a  map;
+//// if so, create a copy and lower-case the keys recursively.
+//func toCaseInsensitiveValue(value interface{}) interface{} {
+//	switch v := value.(type) {
+//	case map[interface{}]interface{}:
+//		value = copyAndInsensitiviseMap(cast.ToStringMap(v))
+//	case map[string]interface{}:
+//		value = copyAndInsensitiviseMap(v)
+//	}
+//
+//	return value
+//}
 
 // probably not useful
 // copyAndInsensitiviseMap behaves like insensitiviseMap, but creates a copy of
@@ -135,17 +134,17 @@ func absPathify(inPath string) string {
 	return ""
 }
 
-// Check if file Exists
-func exists(fs afero.Fs, path string) (bool, error) {
-	stat, err := fs.Stat(path)
-	if err == nil {
-		return !stat.IsDir(), nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
+//// Check if file Exists
+//func exists(fs afero.Fs, path string) (bool, error) {
+//	stat, err := fs.Stat(path)
+//	if err == nil {
+//		return !stat.IsDir(), nil
+//	}
+//	if os.IsNotExist(err) {
+//		return false, nil
+//	}
+//	return false, err
+//}
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -315,4 +314,39 @@ func searchMap(source map[string]interface{}, path []string) interface{} {
 		}
 	}
 	return nil
+}
+
+func setKeyInMap(target map[string]interface{}, path []string, value interface{}) {
+
+	lastKey := path[len(path)-1]
+	deepestMap := deepAutovivificate(target, path[0:len(path)-1])
+
+	// set innermost value
+	deepestMap[lastKey] = value
+
+	return
+}
+
+// mostly copied from pflag's implementation of this operation here https://github.com/spf13/pflag/blob/master/string_to_string.go#L79
+// alterations are: errors are swallowed, map[string]interface{} is returned in order to enable cast.ToStringMap
+func stringToStringConv(val string) interface{} {
+	val = strings.Trim(val, "[]")
+	// An empty string would cause an empty map
+	if len(val) == 0 {
+		return map[string]interface{}{}
+	}
+	r := csv.NewReader(strings.NewReader(val))
+	ss, err := r.Read()
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(ss))
+	for _, pair := range ss {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			return nil
+		}
+		out[kv[0]] = kv[1]
+	}
+	return out
 }

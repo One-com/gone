@@ -47,8 +47,10 @@ func (h *Hugorm) find(key string, flagDefault bool) interface{} {
 	var config map[string]interface{}
 	config = h.Config()
 
+	//fmt.Println("CONFIG", config)
 	val = searchMap(config, path)
 	if val != nil {
+		//	fmt.Println("VAL NIL", key)
 		return val
 	}
 

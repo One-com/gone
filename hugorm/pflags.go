@@ -2,7 +2,9 @@ package hugorm
 
 import (
 	"fmt"
+	"github.com/spf13/cast"
 	"github.com/spf13/pflag"
+	"strings"
 )
 
 // FlagValue is an interface that users can implement
@@ -61,14 +63,6 @@ func (p pflagValue) ValueType() string {
 
 //=============================================================================
 
-// BindPFlags binds a full flag set to the configuration, using each flag's long
-// name as the config key.
-func BindPFlags(flags *pflag.FlagSet) error { return hg.BindPFlags(flags) }
-
-func (h *Hugorm) BindPFlags(flags *pflag.FlagSet) error {
-	return h.BindFlagValues(pflagValueSet{flags})
-}
-
 // BindPFlag binds a specific key to a pflag (as used by cobra).
 // Example (where serverCmd is a Cobra instance):
 //
@@ -84,6 +78,28 @@ func (h *Hugorm) BindPFlag(key string, flag *pflag.Flag) error {
 	return h.BindFlagValue(key, pflagValue{flag})
 }
 
+// BindPFlags binds a full flag set to the configuration, using each flag's long
+// name as the config key.
+func BindPFlags(flags *pflag.FlagSet) error { return hg.BindPFlags(flags) }
+
+func (h *Hugorm) BindPFlags(flags *pflag.FlagSet) error {
+	return h.BindFlagValues(pflagValueSet{flags})
+}
+
+// BindFlagValue binds a specific key to a FlagValue.
+func BindFlagValue(key string, flag FlagValue) error { return hg.BindFlagValue(key, flag) }
+
+func (h *Hugorm) BindFlagValue(key string, flag FlagValue) error {
+	if flag == nil {
+		return fmt.Errorf("flag for %q is nil", key)
+	}
+	h.pflags[key] = flag
+
+	h.invalidateCache()
+
+	return nil
+}
+
 // BindFlagValues binds a full FlagValue set to the configuration, using each flag's long
 // name as the config key.
 func BindFlagValues(flags FlagValueSet) error { return hg.BindFlagValues(flags) }
@@ -97,17 +113,6 @@ func (h *Hugorm) BindFlagValues(flags FlagValueSet) (err error) {
 	return nil
 }
 
-// BindFlagValue binds a specific key to a FlagValue.
-func BindFlagValue(key string, flag FlagValue) error { return hg.BindFlagValue(key, flag) }
-
-func (h *Hugorm) BindFlagValue(key string, flag FlagValue) error {
-	if flag == nil {
-		return fmt.Errorf("flag for %q is nil", key)
-	}
-	h.pflags[key] = flag
-	return nil
-}
-
 //--------------------------------------------------------------------------------------
 
 func castMapFlagToMapInterface(src map[string]FlagValue) map[string]interface{} {
@@ -116,4 +121,37 @@ func castMapFlagToMapInterface(src map[string]FlagValue) map[string]interface{} 
 		tgt[k] = v
 	}
 	return tgt
+}
+
+func (h *Hugorm) flagBindings2configMap(bindings map[string]FlagValue) (result map[string]interface{}) {
+
+	result = make(map[string]interface{})
+
+	for b, flag := range bindings {
+		var val interface{}
+		path := strings.Split(b, h.keyDelim)
+		if flag.ExplicitlyGiven() {
+			switch flag.ValueType() {
+			case "int", "int8", "int16", "int32", "int64":
+				val = cast.ToInt(flag.ValueString())
+			case "bool":
+				val = cast.ToBool(flag.ValueString())
+			case "stringSlice":
+				s := strings.TrimPrefix(flag.ValueString(), "[")
+				s = strings.TrimSuffix(s, "]")
+				val, _ = readAsCSV(s)
+			case "intSlice":
+				s := strings.TrimPrefix(flag.ValueString(), "[")
+				s = strings.TrimSuffix(s, "]")
+				res, _ := readAsCSV(s)
+				val = cast.ToIntSlice(res)
+			case "stringToString":
+				val = stringToStringConv(flag.ValueString())
+			default:
+				val = flag.ValueString()
+			}
+			setKeyInMap(result, path, val)
+		}
+	}
+	return
 }

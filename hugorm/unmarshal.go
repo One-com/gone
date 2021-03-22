@@ -1,41 +1,29 @@
 package hugorm
 
 import (
-	"fmt"
 	"github.com/mitchellh/mapstructure"
 )
 
-// ConfigMarshalError happens when failing to marshal the configuration.
-type ConfigMarshalError struct {
-	err error
-}
-
-// Error returns the formatted configuration error.
-func (e ConfigMarshalError) Error() string {
-	return fmt.Sprintf("While marshaling config: %s", e.err.Error())
-}
-
-// UnmarshalKey takes a single key and unmarshals it into a Struct.
-func UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
-	return hg.UnmarshalKey(key, rawVal, opts...)
-}
-
-func (h *Hugorm) UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
-	return decode(h.Get(key), defaultDecoderConfig(rawVal, opts...))
-}
-
-//TODO
-//// Unmarshal unmarshals the config into a Struct. Make sure that the tags
-//// on the fields of the structure are properly set.
-//func Unmarshal(rawVal interface{}, opts ...DecoderConfigOption) error {
-//	return hg.Unmarshal(rawVal, opts...)
+//// UnmarshalKey takes a single key and unmarshals it into a Struct.
+//func UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
+//	return hg.UnmarshalKey(key, rawVal, opts...)
 //}
 //
-//func (h *Hugorm) Unmarshal(rawVal interface{}, opts ...DecoderConfigOption) error {
-//	return decode(v.AllSettings(), defaultDecoderConfig(rawVal, opts...))
+//func (h *Hugorm) UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
+//	return decode(h.Get(key), defaultDecoderConfig(rawVal, opts...))
 //}
 
-// A DecoderConfigOption can be passed to viper.Unmarshal to configure
+// Unmarshal unmarshals the config into a Struct. Make sure that the tags
+// on the fields of the structure are properly set.
+func Unmarshal(rawVal interface{}, opts ...DecoderConfigOption) error {
+	return hg.Unmarshal(rawVal, opts...)
+}
+
+func (h *Hugorm) Unmarshal(rawVal interface{}, opts ...DecoderConfigOption) error {
+	return decode(h.Config(), defaultDecoderConfig(rawVal, opts...))
+}
+
+// A DecoderConfigOption can be passed to hugorm.Unmarshal to configure
 // mapstructure.DecoderConfig options
 type DecoderConfigOption func(*mapstructure.DecoderConfig)
 
@@ -52,7 +40,7 @@ func DecodeHook(hook mapstructure.DecodeHookFunc) DecoderConfigOption {
 	}
 }
 
-// defaultDecoderConfig returns default mapsstructure.DecoderConfig with suppot
+// defaultDecoderConfig returns default mapstructure.DecoderConfig with support
 // of time.Duration values & string slices
 func defaultDecoderConfig(output interface{}, opts ...DecoderConfigOption) *mapstructure.DecoderConfig {
 	c := &mapstructure.DecoderConfig{
