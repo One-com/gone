@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.one.com/go/netutil/reaper"
+	"github.com/One-com/gone/netutil/reaper"
 	"golang.org/x/net/nettest"
 )
 
