@@ -14,11 +14,16 @@
 // Each item takes precedence over the item below it:
 
 // overrides
-// flag
+// flag (if explicitly given)
 // env
 // config
 // key/value store
 // default
+
+// Hugorm is a replacement for the gone/jconf library which was just a thin
+// wrapper around stdlib encoding/json. That direct coupling to the stdlib json
+// parser turned out to be a limitation for features and Hugorm (like Viper) employs
+// an intermediate representation of the config as a map[string]interface{} instead.
 
 package hugorm
 
@@ -61,8 +66,8 @@ func init() {
 // can use it in their testing as well.
 func Reset(opts ...Option) {
 	hg = New(opts...)
-	//	SupportedExts = []string{"json", "yaml", "yml"}
-	//APM	SupportedRemoteProviders = []string{"etcd", "consul"}
+	//APM   SupportedExts = []string{"json", "yaml", "yml"}
+	//APM   SupportedRemoteProviders = []string{"etcd", "consul"}
 }
 
 // ConfigSource is a case sensitive recursive store of config key/value (values can be maps)
@@ -70,7 +75,7 @@ type ConfigSource interface {
 	Values() map[string]interface{}
 }
 
-// ConfigLoader is a ConfigSource which needs explicit loading to refresh
+// ConfigLoader is a ConfigSource which needs explicit loading to refresh it's values
 type ConfigLoader interface {
 	ConfigSource
 	Load() error
@@ -108,8 +113,8 @@ type Hugorm struct {
 	envPrefix string
 
 	// config keys stored here are case sensitive.
-	pflags map[string]FlagValue
-	env    map[string][]string
+	//flags map[string]FlagValue
+	env map[string][]string
 
 	override map[string]interface{}
 	defaults map[string]interface{}
@@ -119,6 +124,8 @@ type Hugorm struct {
 
 	//onConfigChange func(fsnotify.Event)
 
+	// Cache of the consolidated config. Needs invalidation every time
+	// some source makes values change.
 	configCache map[string]interface{}
 
 	allowEmptyEnv bool
@@ -134,6 +141,7 @@ func (h *Hugorm) casing(key string) string {
 	return key
 }
 
+// Right now we don't support aliases.
 func (h *Hugorm) realKey(key string) string {
 	//newkey, exists := v.aliases[key]
 	//if exists {
@@ -144,7 +152,7 @@ func (h *Hugorm) realKey(key string) string {
 
 //------------- cache access --------------------
 func (h *Hugorm) invalidateCache() {
-	// TODO go-routine safe
+	// TODO: go-routine safe
 	h.configCache = nil
 }
 
@@ -195,10 +203,8 @@ func New(opts ...Option) *Hugorm {
 	h.override = make(map[string]interface{})
 	h.defaults = make(map[string]interface{})
 
-	h.pflags = make(map[string]FlagValue)
+	//h.flags = make(map[string]FlagValue)
 	h.env = make(map[string][]string)
-
-	//h.typeByDefValue = false
 
 	for _, opt := range opts {
 		opt.apply(h)
@@ -289,7 +295,6 @@ func (h *Hugorm) InConfig(key string) bool {
 }
 
 // SetDefault sets the default value for this key.
-// SetDefault is case-insensitive for a key.
 // Default only used when no value is provided by the user via flag, config or ENV.
 func SetDefault(key string, value interface{}) { hg.SetDefault(key, value) }
 
@@ -342,8 +347,7 @@ func (h *Hugorm) LoadConfig() error {
 	return nil
 }
 
-// ReadConfigFrom will parse the data in the provided io.Reader
-// and use it.
+// AddConfigFrom will parse the data in the provided io.Reader and append it to the config.
 func AddConfigFrom(format string, in io.Reader) error { return hg.AddConfigFrom(format, in) }
 
 func (h *Hugorm) AddConfigFrom(format string, in io.Reader) error {
@@ -355,25 +359,20 @@ func (h *Hugorm) AddConfigFrom(format string, in io.Reader) error {
 		return err
 	}
 
-	h.sources = append(h.sources, &inMem{values: data})
+	return h.AddConfigMap(data)
+}
+
+// AddConfigMap appends the configuration from the map given as a constant config source
+func AddConfigMap(cfg map[string]interface{}) error { return hg.AddConfigMap(cfg) }
+
+func (h *Hugorm) AddConfigMap(cfg map[string]interface{}) error {
+
+	h.sources = append(h.sources, &inMem{values: cfg})
 
 	h.invalidateCache()
 
 	return nil
 }
-
-//// MergeConfigMap merges the configuration from the map given with an existing config.
-//// Note that the map given may be modified.
-//func MergeConfigMap(cfg map[string]interface{}) error { return v.MergeConfigMap(cfg) }
-//
-//func (v *Viper) MergeConfigMap(cfg map[string]interface{}) error {
-//	if v.config == nil {
-//		v.config = make(map[string]interface{})
-//	}
-//	insensitiviseMap(cfg)
-//	mergeMaps(cfg, v.config, nil)
-//	return nil
-//}
 
 // WriteConfig writes the current configuration to a file.
 func WriteConfigTo(out io.Writer) error { return hg.WriteConfigTo(out) }
@@ -438,7 +437,7 @@ func (h *Hugorm) marshalWriter(out io.Writer, configType string) error {
 //	// add all paths, by order of descending priority to ensure correct shadowing
 //	m = h.flattenAndMergeMap(m, castMapStringToMapInterface(h.aliases), "")
 //	m = h.flattenAndMergeMap(m, h.override, "")
-//	m = h.mergeFlatMap(m, castMapFlagToMapInterface(h.pflags))
+//	m = h.mergeFlatMap(m, castMapFlagToMapInterface(h.flags))
 //	m = h.mergeFlatMap(m, castMapStringSliceToMapInterface(h.env))
 //	m = h.flattenAndMergeMap(m, h.config, "")
 //	m = h.flattenAndMergeMap(m, h.kvstore, "")
@@ -474,16 +473,20 @@ func (h *Hugorm) marshalWriter(out io.Writer, configType string) error {
 //	return m
 //}
 
+// Config returns the consolidated config
 func Config() map[string]interface{} { return hg.Config() }
 
 func (h *Hugorm) Config() map[string]interface{} {
 	if h.configCache == nil {
-		h.configCache = h.mergeConfigs()
+		h.configCache = h.consolidateConfigs()
 	}
 	return h.configCache
 }
 
-func (h *Hugorm) mergeConfigs() (consolidated map[string]interface{}) {
+// consolidateConfigs takes all the config sources in priority (flags, env, sources..)
+// and computes the union of keys, overwriting earlier keys with later.
+
+func (h *Hugorm) consolidateConfigs() (consolidated map[string]interface{}) {
 
 	// merge in priority order - lowest first.
 	consolidated = deepCopyMap(h.defaults, h.caseInsensitive)
@@ -497,7 +500,7 @@ func (h *Hugorm) mergeConfigs() (consolidated map[string]interface{}) {
 	mergeMaps(consolidated, h.envBindings2configMap(h.env))
 
 	// Flags
-	mergeMaps(consolidated, h.flagBindings2configMap(h.pflags))
+	//mergeMaps(consolidated, h.flagBindings2configMap(h.flags))
 
 	// Override
 	mcopy := deepCopyMap(h.override, h.caseInsensitive)
@@ -535,6 +538,6 @@ func (h *Hugorm) Debug() {
 	}
 	fmt.Printf("Override:\n%#v\n", h.override)
 
-	fmt.Printf("PFlags:\n%#v\n", h.pflags)
+	//fmt.Printf("Flags:\n%#v\n", h.flags)
 	fmt.Printf("Env:\n%#v\n", h.env)
 }

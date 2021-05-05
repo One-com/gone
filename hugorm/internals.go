@@ -26,31 +26,22 @@ outer:
 	return shadow
 }
 
+// find a key (in it's path form) in the config. Fall back to
+// flag default values if flagDefault==true
+// find is always case sensitive.
 func (h *Hugorm) find(key string, flagDefault bool) interface{} {
-	var (
-		val interface{}
-		//		exists bool
-		path = strings.Split(key, h.keyDelim)
-		//		nested = len(path) > 1
-	)
 
-	//	// compute the path through the nested maps to the nested value
-	//	if nested && v.isPathShadowedInDeepMap(path, castMapStringToMapInterface(v.aliases)) != "" {
-	//		return nil
-	//	}
+	var val interface{}
 
 	// if the requested key is an alias, then return the proper key
 	key = h.realKey(key)
-	path = strings.Split(key, h.keyDelim)
-	//	nested = len(path) > 1
 
-	var config map[string]interface{}
-	config = h.Config()
+	path := strings.Split(key, h.keyDelim)
 
-	//fmt.Println("CONFIG", config)
+	config := h.Config()
+
 	val = searchMap(config, path)
 	if val != nil {
-		//	fmt.Println("VAL NIL", key)
 		return val
 	}
 

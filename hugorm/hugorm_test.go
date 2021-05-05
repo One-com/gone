@@ -26,7 +26,7 @@ import (
 	//"github.com/mitchellh/mapstructure"
 
 	//"github.com/spf13/cast"
-	"github.com/spf13/pflag"
+	//	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	//	"github.com/stretchr/testify/require"
 	"github.com/One-com/gone/hugorm/internal/testutil"
@@ -783,158 +783,159 @@ func TestUnmarshal(t *testing.T) {
 //	}, &C)
 //}
 //
-func TestBindPFlags(t *testing.T) {
-	v := New() // create independent object
-	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
 
-	testValues := map[string]*string{
-		"host":     nil,
-		"port":     nil,
-		"endpoint": nil,
-	}
-
-	mutatedTestValues := map[string]string{
-		"host":     "localhost",
-		"port":     "6060",
-		"endpoint": "/public",
-	}
-
-	for name := range testValues {
-		testValues[name] = flagSet.String(name, "", "test")
-	}
-
-	err := v.BindPFlags(flagSet)
-	if err != nil {
-		t.Fatalf("error binding flag set, %v", err)
-	}
-
-	flagSet.VisitAll(func(flag *pflag.Flag) {
-		flag.Value.Set(mutatedTestValues[flag.Name])
-		flag.Changed = true
-	})
-
-	for name, expected := range mutatedTestValues {
-		assert.Equal(t, expected, v.Get(name))
-	}
-}
-
-// nolint: dupl
-func TestBindPFlagsStringSlice(t *testing.T) {
-	tests := []struct {
-		Expected []string
-		Value    string
-	}{
-		{[]string{}, ""},
-		{[]string{"jeden"}, "jeden"},
-		{[]string{"dwa", "trzy"}, "dwa,trzy"},
-		{[]string{"cztery", "piec , szesc"}, "cztery,\"piec , szesc\""},
-	}
-
-	v := New() // create independent object
-	defaultVal := []string{"default"}
-	v.SetDefault("stringslice", defaultVal)
-
-	for _, testValue := range tests {
-		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-		flagSet.StringSlice("stringslice", testValue.Expected, "test")
-
-		for _, changed := range []bool{true, false} {
-			flagSet.VisitAll(func(f *pflag.Flag) {
-				f.Value.Set(testValue.Value)
-				f.Changed = changed
-			})
-
-			err := v.BindPFlags(flagSet)
-			if err != nil {
-				t.Fatalf("error binding flag set, %v", err)
-			}
-
-			type TestStr struct {
-				StringSlice []string
-			}
-			val := &TestStr{}
-			if err := v.Unmarshal(val); err != nil {
-				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
-			}
-			if changed {
-				assert.Equal(t, testValue.Expected, val.StringSlice)
-				assert.Equal(t, testValue.Expected, v.Get("stringslice"))
-			} else {
-				assert.Equal(t, defaultVal, val.StringSlice)
-			}
-		}
-	}
-}
-
-// nolint: dupl
-func TestBindPFlagsIntSlice(t *testing.T) {
-	tests := []struct {
-		Expected []int
-		Value    string
-	}{
-		{[]int{}, ""},
-		{[]int{1}, "1"},
-		{[]int{2, 3}, "2,3"},
-	}
-
-	v := New() // create independent object
-	defaultVal := []int{0}
-	v.SetDefault("intslice", defaultVal)
-
-	for _, testValue := range tests {
-		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
-		flagSet.IntSlice("intslice", testValue.Expected, "test")
-
-		for _, changed := range []bool{true, false} {
-			flagSet.VisitAll(func(f *pflag.Flag) {
-				f.Value.Set(testValue.Value)
-				f.Changed = changed
-			})
-
-			err := v.BindPFlags(flagSet)
-			if err != nil {
-				t.Fatalf("error binding flag set, %v", err)
-			}
-
-			type TestInt struct {
-				IntSlice []int
-			}
-			val := &TestInt{}
-			if err := v.Unmarshal(val); err != nil {
-				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
-			}
-			if changed {
-				assert.Equal(t, testValue.Expected, val.IntSlice)
-				assert.Equal(t, testValue.Expected, v.Get("intslice"))
-			} else {
-				assert.Equal(t, defaultVal, val.IntSlice)
-			}
-		}
-	}
-}
-
-// TODO: There's some confusion about Changed semantics and default values here
-//
-//func TestBindPFlag(t *testing.T) {
-//	Reset()
-//	testString := "testing"
-//	testValue := newStringValue(testString, &testString)
-//
-//	flag := &pflag.Flag{
-//		Name:    "testflag",
-//		Value:   testValue,
-//		Changed: false,
-//	}
-//
-//	BindPFlag("testvalue", flag)
-//
-//	assert.Equal(t, testString, Get("testvalue"))
-//
-//	flag.Value.Set("testing_mutate")
-//	flag.Changed = true // hack for pflag usage
-//
-//	assert.Equal(t, "testing_mutate", Get("testvalue"))
-//}
+//NOFLAGYET func TestBindPFlags(t *testing.T) {
+//NOFLAGYET 	v := New() // create independent object
+//NOFLAGYET 	flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+//NOFLAGYET
+//NOFLAGYET 	testValues := map[string]*string{
+//NOFLAGYET 		"host":     nil,
+//NOFLAGYET 		"port":     nil,
+//NOFLAGYET 		"endpoint": nil,
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	mutatedTestValues := map[string]string{
+//NOFLAGYET 		"host":     "localhost",
+//NOFLAGYET 		"port":     "6060",
+//NOFLAGYET 		"endpoint": "/public",
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	for name := range testValues {
+//NOFLAGYET 		testValues[name] = flagSet.String(name, "", "test")
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	err := v.BindPFlags(flagSet)
+//NOFLAGYET 	if err != nil {
+//NOFLAGYET 		t.Fatalf("error binding flag set, %v", err)
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	flagSet.VisitAll(func(flag *pflag.Flag) {
+//NOFLAGYET 		flag.Value.Set(mutatedTestValues[flag.Name])
+//NOFLAGYET 		flag.Changed = true
+//NOFLAGYET 	})
+//NOFLAGYET
+//NOFLAGYET 	for name, expected := range mutatedTestValues {
+//NOFLAGYET 		assert.Equal(t, expected, v.Get(name))
+//NOFLAGYET 	}
+//NOFLAGYET }
+//NOFLAGYET
+//NOFLAGYET // nolint: dupl
+//NOFLAGYET func TestBindPFlagsStringSlice(t *testing.T) {
+//NOFLAGYET 	tests := []struct {
+//NOFLAGYET 		Expected []string
+//NOFLAGYET 		Value    string
+//NOFLAGYET 	}{
+//NOFLAGYET 		{[]string{}, ""},
+//NOFLAGYET 		{[]string{"jeden"}, "jeden"},
+//NOFLAGYET 		{[]string{"dwa", "trzy"}, "dwa,trzy"},
+//NOFLAGYET 		{[]string{"cztery", "piec , szesc"}, "cztery,\"piec , szesc\""},
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	v := New() // create independent object
+//NOFLAGYET 	defaultVal := []string{"default"}
+//NOFLAGYET 	v.SetDefault("stringslice", defaultVal)
+//NOFLAGYET
+//NOFLAGYET 	for _, testValue := range tests {
+//NOFLAGYET 		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+//NOFLAGYET 		flagSet.StringSlice("stringslice", testValue.Expected, "test")
+//NOFLAGYET
+//NOFLAGYET 		for _, changed := range []bool{true, false} {
+//NOFLAGYET 			flagSet.VisitAll(func(f *pflag.Flag) {
+//NOFLAGYET 				f.Value.Set(testValue.Value)
+//NOFLAGYET 				f.Changed = changed
+//NOFLAGYET 			})
+//NOFLAGYET
+//NOFLAGYET 			err := v.BindPFlags(flagSet)
+//NOFLAGYET 			if err != nil {
+//NOFLAGYET 				t.Fatalf("error binding flag set, %v", err)
+//NOFLAGYET 			}
+//NOFLAGYET
+//NOFLAGYET 			type TestStr struct {
+//NOFLAGYET 				StringSlice []string
+//NOFLAGYET 			}
+//NOFLAGYET 			val := &TestStr{}
+//NOFLAGYET 			if err := v.Unmarshal(val); err != nil {
+//NOFLAGYET 				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
+//NOFLAGYET 			}
+//NOFLAGYET 			if changed {
+//NOFLAGYET 				assert.Equal(t, testValue.Expected, val.StringSlice)
+//NOFLAGYET 				assert.Equal(t, testValue.Expected, v.Get("stringslice"))
+//NOFLAGYET 			} else {
+//NOFLAGYET 				assert.Equal(t, defaultVal, val.StringSlice)
+//NOFLAGYET 			}
+//NOFLAGYET 		}
+//NOFLAGYET 	}
+//NOFLAGYET }
+//NOFLAGYET
+//NOFLAGYET // nolint: dupl
+//NOFLAGYET func TestBindPFlagsIntSlice(t *testing.T) {
+//NOFLAGYET 	tests := []struct {
+//NOFLAGYET 		Expected []int
+//NOFLAGYET 		Value    string
+//NOFLAGYET 	}{
+//NOFLAGYET 		{[]int{}, ""},
+//NOFLAGYET 		{[]int{1}, "1"},
+//NOFLAGYET 		{[]int{2, 3}, "2,3"},
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	v := New() // create independent object
+//NOFLAGYET 	defaultVal := []int{0}
+//NOFLAGYET 	v.SetDefault("intslice", defaultVal)
+//NOFLAGYET
+//NOFLAGYET 	for _, testValue := range tests {
+//NOFLAGYET 		flagSet := pflag.NewFlagSet("test", pflag.ContinueOnError)
+//NOFLAGYET 		flagSet.IntSlice("intslice", testValue.Expected, "test")
+//NOFLAGYET
+//NOFLAGYET 		for _, changed := range []bool{true, false} {
+//NOFLAGYET 			flagSet.VisitAll(func(f *pflag.Flag) {
+//NOFLAGYET 				f.Value.Set(testValue.Value)
+//NOFLAGYET 				f.Changed = changed
+//NOFLAGYET 			})
+//NOFLAGYET
+//NOFLAGYET 			err := v.BindPFlags(flagSet)
+//NOFLAGYET 			if err != nil {
+//NOFLAGYET 				t.Fatalf("error binding flag set, %v", err)
+//NOFLAGYET 			}
+//NOFLAGYET
+//NOFLAGYET 			type TestInt struct {
+//NOFLAGYET 				IntSlice []int
+//NOFLAGYET 			}
+//NOFLAGYET 			val := &TestInt{}
+//NOFLAGYET 			if err := v.Unmarshal(val); err != nil {
+//NOFLAGYET 				t.Fatalf("%+#v cannot unmarshal: %s", testValue.Value, err)
+//NOFLAGYET 			}
+//NOFLAGYET 			if changed {
+//NOFLAGYET 				assert.Equal(t, testValue.Expected, val.IntSlice)
+//NOFLAGYET 				assert.Equal(t, testValue.Expected, v.Get("intslice"))
+//NOFLAGYET 			} else {
+//NOFLAGYET 				assert.Equal(t, defaultVal, val.IntSlice)
+//NOFLAGYET 			}
+//NOFLAGYET 		}
+//NOFLAGYET 	}
+//NOFLAGYET }
+//NOFLAGYET
+//NOFLAGYET func TestBindPFlag(t *testing.T) {
+//NOFLAGYET 	Reset()
+//NOFLAGYET 	testString := "testing"
+//NOFLAGYET 	testValue := newStringValue(testString, &testString)
+//NOFLAGYET
+//NOFLAGYET 	flag := &pflag.Flag{
+//NOFLAGYET 		Name:    "testflag",
+//NOFLAGYET 		Value:   testValue,
+//NOFLAGYET 		Changed: false,
+//NOFLAGYET 	}
+//NOFLAGYET
+//NOFLAGYET 	BindPFlag("testvalue", flag)
+//NOFLAGYET
+//NOFLAGYET 	assert.Equal(t, testString, Get("testvalue"))
+//NOFLAGYET
+//NOFLAGYET 	//flag.Value.Set("testing_mutate")
+//NOFLAGYET 	//flag.Changed = true // hack for pflag usage
+//NOFLAGYET 	//
+//NOFLAGYET 	//BindPFlag("testvalue", flag)
+//NOFLAGYET 	//
+//NOFLAGYET 	//assert.Equal(t, "testing_mutate", Get("testvalue"))
+//NOFLAGYET }
 
 //func TestBindPFlagDetectNilFlag(t *testing.T) {
 //	result := BindPFlag("testvalue", nil)
