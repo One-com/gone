@@ -4,15 +4,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-//// UnmarshalKey takes a single key and unmarshals it into a Struct.
-//func UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
-//	return hg.UnmarshalKey(key, rawVal, opts...)
-//}
-//
-//func (h *Hugorm) UnmarshalKey(key string, rawVal interface{}, opts ...DecoderConfigOption) error {
-//	return decode(h.Get(key), defaultDecoderConfig(rawVal, opts...))
-//}
-
 // Unmarshal unmarshals the config into a Struct. Make sure that the tags
 // on the fields of the structure are properly set.
 func Unmarshal(rawVal interface{}, opts ...DecoderConfigOption) error {
@@ -66,17 +57,3 @@ func decode(input interface{}, config *mapstructure.DecoderConfig) error {
 	}
 	return decoder.Decode(input)
 }
-
-// TODO
-//// UnmarshalExact unmarshals the config into a Struct, erroring if a field is nonexistent
-//// in the destination struct.
-//func UnmarshalExact(rawVal interface{}, opts ...DecoderConfigOption) error {
-//	return hg.UnmarshalExact(rawVal, opts...)
-//}
-//
-//func (h *Hugorm) UnmarshalExact(rawVal interface{}, opts ...DecoderConfigOption) error {
-//	config := defaultDecoderConfig(rawVal, opts...)
-//	config.ErrorUnused = true
-//
-//	return decode(v.AllSettings(), config)
-//}

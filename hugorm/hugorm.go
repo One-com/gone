@@ -14,7 +14,7 @@
 // Each item takes precedence over the item below it:
 
 // overrides
-// flag (if explicitly given)
+// flag (TODO)
 // env
 // config
 // key/value store
@@ -31,7 +31,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	//"github.com/stretchr/objx"
 	"gopkg.in/yaml.v2"
 	"io"
 	"strings"
@@ -228,56 +227,16 @@ func (h *Hugorm) AddConfigFile(format, filename string) {
 	h.invalidateCache()
 }
 
-//TODO
-//// ConfigFileUsed returns the file used to populate the config registry.
-//func ConfigFileUsed() string            { return v.ConfigFileUsed() }
-//func (v *Viper) ConfigFileUsed() string { return v.configFile }
-//
-//// AddConfigPath adds a path for Viper to search for the config file in.
-//// Can be called multiple times to define multiple search paths.
-//func AddConfigPath(in string) { v.AddConfigPath(in) }
-//
-//func (v *Viper) AddConfigPath(in string) {
-//	if in != "" {
-//		absin := absPathify(in)
-//		jww.INFO.Println("adding", absin, "to paths to search")
-//		if !stringInSlice(absin, v.configPaths) {
-//			v.configPaths = append(v.configPaths, absin)
-//		}
-//	}
-//}
-
-// SetTypeByDefaultValue enables or disables the inference of a key value's
-// type when the Get function is used based upon a key's default value as
-// opposed to the value returned based on the normal fetch logic.
-//
-// For example, if a key has a default value of []string{} and the same key
-// is set via an environment variable to "a b c", a call to the Get function
-// would return a string slice for the key if the key's type is inferred by
-// the default value and the Get function would return:
-//
-//   []string {"a", "b", "c"}
-//
-// Otherwise the Get function would return:
-//
-//   "a b c"
-//func SetTypeByDefaultValue(enable bool) { v.SetTypeByDefaultValue(enable) }
-//
-//func (v *Viper) SetTypeByDefaultValue(enable bool) {
-//	v.typeByDefValue = enable
-//}
-
 //// TODO
 //// IsSet checks to see if the key has been set in any of the data locations.
 //// IsSet is case-insensitive for a key.
-//func IsSet(key string) bool { return v.IsSet(key) }
+//func IsSet(key string) bool { return hg.IsSet(key) }
 //
-//func (v *Viper) IsSet(key string) bool {
-//	lcaseKey := strings.ToLower(key)
-//	val := v.find(lcaseKey, false)
+//func (h *Hugorm) IsSet(key string) bool {
+//      key = h.casing(key)
+//	val := v.find(key, false)
 //	return val != nil
 //}
-//
 
 // InConfig checks to see if the given key (or an alias) is in the config file.
 func InConfig(key string) bool { return hg.InConfig(key) }
@@ -434,43 +393,13 @@ func (h *Hugorm) marshalWriter(out io.Writer, configType string) error {
 //
 //func (h *Hugorm) AllKeys() []string {
 //	m := map[string]bool{}
-//	// add all paths, by order of descending priority to ensure correct shadowing
-//	m = h.flattenAndMergeMap(m, castMapStringToMapInterface(h.aliases), "")
-//	m = h.flattenAndMergeMap(m, h.override, "")
-//	m = h.mergeFlatMap(m, castMapFlagToMapInterface(h.flags))
-//	m = h.mergeFlatMap(m, castMapStringSliceToMapInterface(h.env))
-//	m = h.flattenAndMergeMap(m, h.config, "")
-//	m = h.flattenAndMergeMap(m, h.kvstore, "")
-//	m = h.flattenAndMergeMap(m, h.defaults, "")
-//
+//      TODO: traverse config getting keys....
 //	// convert set of paths to list
 //	a := make([]string, 0, len(m))
 //	for x := range m {
 //		a = append(a, x)
 //	}
 //	return a
-//}
-//
-//// AllSettings merges all settings and returns them as a map[string]interface{}.
-//func AllSettings() map[string]interface{} { return hg.AllSettings() }
-//
-//func (v *Viper) AllSettings() map[string]interface{} {
-//	m := map[string]interface{}{}
-//	// start from the list of keys, and construct the map one value at a time
-//	for _, k := range h.AllKeys() {
-//		value := h.Get(k)
-//		if value == nil {
-//			// should not happen, since AllKeys() returns only keys holding a value,
-//			// check just in case anything changes
-//			continue
-//		}
-//		path := strings.Split(k, h.keyDelim)
-//		lastKey := strings.ToLower(path[len(path)-1])
-//		deepestMap := deepSearch(m, path[0:len(path)-1])
-//		// set innermost value
-//		deepestMap[lastKey] = value
-//	}
-//	return m
 //}
 
 // Config returns the consolidated config
@@ -485,7 +414,6 @@ func (h *Hugorm) Config() map[string]interface{} {
 
 // consolidateConfigs takes all the config sources in priority (flags, env, sources..)
 // and computes the union of keys, overwriting earlier keys with later.
-
 func (h *Hugorm) consolidateConfigs() (consolidated map[string]interface{}) {
 
 	// merge in priority order - lowest first.
@@ -509,23 +437,20 @@ func (h *Hugorm) consolidateConfigs() (consolidated map[string]interface{}) {
 	return
 }
 
-//// SubConfig returns an object representing a sub tree of this instance.
-//// The subtree of the config at this point must be a map[string]interface{}
-//func SubConfig(key string) *Hugorm { return hg.SubConfig(key) }
+// Get can retrieve any value given the key to use.
+// Get is case-insensitive for a key.
+// Get has the behavior of returning the value associated with the first
+// place from where it is set. Viper will check in the following order:
+// override, flag, env, config file, key/value store, default
 //
-//func (h *Hugorm) SubConfig(key string) *Hugorm {
-//	subv := New()
-//	data := h.Get(key)
-//	if data == nil {
-//		return nil
-//	}
-//
-//	if reflect.TypeOf(data).Kind() == reflect.Map {
-//		subv.config = cast.ToStringMap(data)
-//		return subv
-//	}
-//	return nil
-//}
+// Get returns an interface. For a specific value use one of the Get____ methods.
+func Get(key string) interface{} { return hg.Get(key) }
+
+func (h *Hugorm) Get(key string) interface{} {
+	key = h.casing(key)
+	val := h.find(key, true)
+	return val
+}
 
 // Debug prints all configuration registries for debugging
 // purposes.

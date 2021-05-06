@@ -22,40 +22,6 @@ import (
 	"reflect"
 )
 
-//// toCaseInsensitiveValue checks if the value is a  map;
-//// if so, create a copy and lower-case the keys recursively.
-//func toCaseInsensitiveValue(value interface{}) interface{} {
-//	switch v := value.(type) {
-//	case map[interface{}]interface{}:
-//		value = copyAndInsensitiviseMap(cast.ToStringMap(v))
-//	case map[string]interface{}:
-//		value = copyAndInsensitiviseMap(v)
-//	}
-//
-//	return value
-//}
-
-// probably not useful
-// copyAndInsensitiviseMap behaves like insensitiviseMap, but creates a copy of
-// any map it makes case insensitive.
-func copyAndInsensitiviseMap(m map[string]interface{}) map[string]interface{} {
-	nm := make(map[string]interface{})
-
-	for key, val := range m {
-		lkey := strings.ToLower(key)
-		switch v := val.(type) {
-		case map[interface{}]interface{}:
-			nm[lkey] = copyAndInsensitiviseMap(cast.ToStringMap(v))
-		case map[string]interface{}:
-			nm[lkey] = copyAndInsensitiviseMap(v)
-		default:
-			nm[lkey] = v
-		}
-	}
-
-	return nm
-}
-
 // deepCopyMap creates a independent copy of any map
 // NB having both upper and lowercase versions of a key gives undefined results.
 func deepCopyMap(m map[string]interface{}, caseInsensitive bool) map[string]interface{} {
