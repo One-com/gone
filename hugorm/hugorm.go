@@ -238,20 +238,20 @@ func (h *Hugorm) AddConfigFile(format, filename string) {
 //	return val != nil
 //}
 
-// InConfig checks to see if the given key (or an alias) is in the config file.
-func InConfig(key string) bool { return hg.InConfig(key) }
-
-func (h *Hugorm) InConfig(key string) bool {
-	key = h.casing(key)
-
-	// if the requested key is an alias, then return the proper key
-	key = h.realKey(key)
-
-	config := h.Config()
-
-	_, exists := config[key]
-	return exists
-}
+// support deep keys// // InConfig checks to see if the given key (or an alias) is in the config file.
+// support deep keys// func InConfig(key string) bool { return hg.InConfig(key) }
+// support deep keys//
+// support deep keys// func (h *Hugorm) InConfig(key string) bool {
+// support deep keys// 	key = h.casing(key)
+// support deep keys//
+// support deep keys// 	// if the requested key is an alias, then return the proper key
+// support deep keys// 	key = h.realKey(key)
+// support deep keys//
+// support deep keys// 	config := h.Config()
+// support deep keys//
+// support deep keys// 	_, exists := config[key]
+// support deep keys// 	return exists
+// support deep keys// }
 
 // SetDefault sets the default value for this key.
 // Default only used when no value is provided by the user via flag, config or ENV.
